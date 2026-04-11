@@ -1,0 +1,15 @@
+{
+	"name": "plugin-develop",
+	"tree": {
+		"$className": "DataModel",
+		"ReplicatedStorage": {
+			"$className": "ReplicatedStorage",
+			"PluginRoot": {
+				"$path": "plugin.project.json"
+			},
+			"DevPackages": {
+				"$path": "DevPackages"
+			}
+		}
+	}
+}

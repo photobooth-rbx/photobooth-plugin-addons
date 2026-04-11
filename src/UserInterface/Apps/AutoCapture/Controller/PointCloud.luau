@@ -1,0 +1,221 @@
+local AssetService = game:GetService("AssetService") :: AssetService
+
+local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local Trove = require(pluginRoot.Packages.Trove)
+
+local BLOCK = { 0, 1, 2, 3, 4, 5, 6, 7 }
+local WEDGE = { 0, 1, 3, 4, 5, 7 }
+local CORNER_WEDGE = { 0, 1, 4, 5, 6 }
+
+local PointCloudStatic = {}
+
+local PointCloudClass = {}
+PointCloudClass.__index = PointCloudClass
+PointCloudClass.ClassName = "PointCloud"
+
+type MeshData = {
+	localVertices: { Vector3 },
+	naturalSize: Vector3,
+}
+
+type Watcher = {
+	part: BasePart,
+	getPointCloud: () -> { Vector3 },
+	cleanup: () -> (),
+}
+
+export type PointCloud = typeof(setmetatable(
+	{} :: {
+		trove: Trove.Trove,
+		subject: Instance,
+		tryUseMeshVertices: boolean?,
+		watchers: { [BasePart]: Watcher },
+		vertices: { Vector3 },
+	},
+	PointCloudClass
+))
+
+function PointCloudStatic.new(subject: Instance, tryUseMeshVertices: boolean?)
+	local self = setmetatable({}, PointCloudClass) :: PointCloud
+
+	self.trove = Trove.new()
+	self.subject = subject
+	self.tryUseMeshVertices = tryUseMeshVertices
+	self.watchers = {}
+	self.vertices = {}
+
+	self:_initWatchers()
+	self:recalculateVertices()
+
+	return self
+end
+
+-- Private
+
+local function getPointCloud(cf: CFrame, size2: Vector3, indices: { number })
+	local pointCloud = {}
+	for i, j in indices do
+		-- stylua: ignore
+		pointCloud[i] = cf * (size2 * Vector3.new(
+			2 * (math.floor(j / 4) % 2) - 1,
+			2 * (math.floor(j / 2) % 2) - 1,
+			2 * (j % 2) - 1
+		))
+	end
+	return pointCloud
+end
+
+local function getPartCFrameSize(part: BasePart)
+	-- potential bug on Roblox's end means we need this hacky solution to read a mesh part's accurate CFrame / Size
+	-- https://devforum.roblox.com/t/avatar-body-parts-dont-match-the-size-listed-in-the-explorer/3101124
+
+	if not part:IsA("MeshPart") then
+		return part.CFrame, part.Size
+	end
+
+	local meshPart = Instance.new("MeshPart")
+	meshPart:ApplyMesh(part)
+	meshPart.CFrame = part.CFrame
+	meshPart.Size = part.Size
+
+	local model = Instance.new("Model")
+	meshPart.Parent = model
+	local partCF, partSize = model:GetBoundingBox()
+	model:Destroy()
+
+	return partCF, partSize
+end
+
+local function getPartPointCloud(part: BasePart)
+	local indices = BLOCK
+	if part:IsA("WedgePart") then
+		indices = WEDGE
+	elseif part:IsA("CornerWedgePart") then
+		indices = CORNER_WEDGE
+	end
+
+	local partCF, partSize = getPartCFrameSize(part)
+	return getPointCloud(partCF, partSize / 2, indices)
+end
+
+local function tryGetMeshData(meshPart: MeshPart): MeshData?
+	local meshData: MeshData?
+	local success, err: string? = pcall(function()
+		local editMesh = AssetService:CreateEditableMeshAsync(meshPart.MeshContent)
+
+		local vertices = {}
+		for _, vertexId in editMesh:GetVertices() do
+			table.insert(vertices, editMesh:GetPosition(vertexId))
+		end
+
+		meshData = {
+			localVertices = vertices,
+			naturalSize = editMesh:GetSize(),
+		}
+
+		editMesh:Destroy()
+	end)
+
+	if not success and err then
+		warn(err)
+	end
+
+	return meshData
+end
+
+function PointCloudClass._watchPart(self: PointCloud, part: BasePart): Watcher
+	local trove = Trove.new()
+	local meshData: MeshData?
+
+	trove:Add(part:GetPropertyChangedSignal("CFrame"):Connect(function()
+		self:recalculateVertices()
+	end))
+
+	trove:Add(part:GetPropertyChangedSignal("Size"):Connect(function()
+		self:recalculateVertices()
+	end))
+
+	if part:IsA("MeshPart") then
+		local thread = task.spawn(function()
+			local data = tryGetMeshData(part)
+			if data then
+				meshData = data
+				self:recalculateVertices()
+			end
+		end)
+
+		trove:Add(function()
+			task.cancel(thread)
+		end)
+	end
+
+	local function getPointCloud()
+		if meshData and self.tryUseMeshVertices then
+			local partCF = part.CFrame
+			local scale = part.Size / meshData.naturalSize
+			local cloud = table.create(#meshData.localVertices)
+			for i, lp in meshData.localVertices do
+				cloud[i] = partCF * (lp * scale)
+			end
+			return cloud
+		end
+		return getPartPointCloud(part)
+	end
+
+	return {
+		part = part,
+		getPointCloud = getPointCloud,
+		cleanup = function()
+			trove:Destroy()
+		end,
+	}
+end
+
+function PointCloudClass._initWatchers(self: PointCloud)
+	for _, part in self.subject:QueryDescendants("BasePart") do
+		self.watchers[part] = self:_watchPart(part)
+	end
+
+	self.trove:Add(self.subject.DescendantAdded:Connect(function(descendant)
+		if descendant:IsA("BasePart") then
+			self.watchers[descendant] = self:_watchPart(descendant)
+			self:recalculateVertices()
+		end
+	end))
+
+	self.trove:Add(self.subject.DescendantRemoving:Connect(function(descendant)
+		if descendant:IsA("BasePart") and self.watchers[descendant] then
+			self.watchers[descendant].cleanup()
+			self.watchers[descendant] = nil
+			self:recalculateVertices()
+		end
+	end))
+
+	self.trove:Add(function()
+		for part, _ in self.watchers do
+			self.watchers[part].cleanup()
+			self.watchers[part] = nil
+		end
+	end)
+end
+
+function PointCloudClass.recalculateVertices(self: PointCloud)
+	local vertices = {}
+	for part, watcher in self.watchers do
+		local pointCloud = watcher.getPointCloud()
+		for _, wp in pointCloud do
+			table.insert(vertices, wp)
+		end
+	end
+	self.vertices = vertices
+end
+
+function PointCloudClass.getVertices(self: PointCloud)
+	return self.vertices
+end
+
+function PointCloudClass.Destroy(self: PointCloud)
+	self.trove:Destroy()
+end
+
+return PointCloudStatic

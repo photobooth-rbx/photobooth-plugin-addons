@@ -1,0 +1,28 @@
+{
+	"name": "PluginRoot",
+	"syncRules": [
+		{
+			"pattern": "LICENSE",
+			"use": "moduleScript"
+		}
+	],
+	"tree": {
+		"$className": "Folder",
+		"$path": "default.project.json",
+		"Packages": {
+			"$path": "Packages"
+		},
+		"Wally": {
+			"$path": "wally.toml"
+		},
+		"LICENSE": {
+			"$path": "LICENSE"
+		},
+		"Runner": {
+			"$className": "Script",
+			"$properties": {
+				"Source": "if plugin then require(script.Parent.Builds.Plugin).build(plugin) end"
+			}
+		}
+	}
+}

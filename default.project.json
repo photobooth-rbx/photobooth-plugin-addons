@@ -1,0 +1,6 @@
+{
+	"name": "photobooth-post-processing-addon",
+	"tree": {
+		"$path": "src"
+	}
+}
