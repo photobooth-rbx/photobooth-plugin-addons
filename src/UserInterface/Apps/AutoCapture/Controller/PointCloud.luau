@@ -201,7 +201,7 @@ end
 
 function PointCloudClass.recalculateVertices(self: PointCloud)
 	local vertices = {}
-	for part, watcher in self.watchers do
+	for _part, watcher in self.watchers do
 		local pointCloud = watcher.getPointCloud()
 		for _, wp in pointCloud do
 			table.insert(vertices, wp)
