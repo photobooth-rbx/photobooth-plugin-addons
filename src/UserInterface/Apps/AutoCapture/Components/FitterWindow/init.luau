@@ -5,9 +5,6 @@ local React = require(pluginRoot.Packages.React)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local Hooks = require(uiRoot.Hooks)
-
-local PlaybackBar = require(script.PlaybackBar)
-
 export type Props = {
 	Resolution: Vector2,
 	IsFullScreen: boolean,
@@ -131,12 +128,6 @@ local function Fitter(props: Props)
 				),
 				ref = paddedFrameRef,
 			}),
-		}),
-
-		PlaybackBar = React.createElement(PlaybackBar, {
-			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, 0, 1, -10),
-			Size = UDim2.fromOffset(500, 22),
 		}),
 	})
 end

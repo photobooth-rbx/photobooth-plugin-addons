@@ -6,6 +6,7 @@ local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local PointCloud = require(script.PointCloud)
+local AnimationManager = require(script.AnimationManager)
 
 local AutoCaptureControllerStatic = {}
 
@@ -33,6 +34,10 @@ function AutoCaptureControllerStatic.createState()
 		PaddingBottom = 0,
 		PaddingLeft = 0,
 	})
+end
+
+function AutoCaptureControllerStatic.createAnimationManager(model: Model)
+	return AnimationManager.new(model)
 end
 
 function AutoCaptureControllerStatic.new(observableState: ObservableState)
@@ -315,9 +320,12 @@ end
 export type State = typeof(AutoCaptureControllerStatic.createState():get())
 export type ObservableState = ObservableValue.ObservableValue<State>
 
+export type AnimationManager = AnimationManager.AnimationManager
+
 export type ModelState = {
 	instance: Model,
 	cameraCF: CFrame,
+	animationManager: AnimationManager.AnimationManager,
 }
 
 export type AutoCaptureController = typeof(setmetatable(

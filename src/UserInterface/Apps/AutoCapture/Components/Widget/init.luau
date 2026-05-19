@@ -11,6 +11,7 @@ local AutoCaptureRoot = script:FindFirstAncestor("AutoCapture")
 local Controller = require(AutoCaptureRoot.Controller)
 
 local Properties = require(script.Properties)
+local Animation = require(script.Animation)
 
 local BUTTONS_HEIGHT = 38
 
@@ -26,6 +27,7 @@ export type Props = {
 	OnListElementSelected: (ListElement?) -> (),
 	OnListElementRemoved: (ListElement) -> (),
 	ObservableState: Controller.ObservableState,
+	AnimationManager: Controller.AnimationManager?,
 	CaptureRect: Rect,
 	Disabled: boolean?,
 }
@@ -35,6 +37,9 @@ local function Widget(props: Props)
 
 	local propertiesRef = React.useRef(nil)
 	local propertiesAbsSize = Hooks.useRefProperty(propertiesRef, "AbsoluteSize", Vector2.zero)
+
+	local animationRef = React.useRef(nil)
+	local animationAbsSize = Hooks.useRefProperty(animationRef, "AbsoluteSize", Vector2.zero)
 
 	local forceRender = Hooks.useUpdate()
 	local listRef = React.useRef({} :: InstanceList.List<PVInstance>)
@@ -74,8 +79,15 @@ local function Widget(props: Props)
 				ref = propertiesRef,
 			}),
 
+			Animation = React.createElement(Animation, {
+				AnimationManager = props.AnimationManager,
+				Disabled = props.Disabled,
+				LayoutOrder = 2,
+				ref = animationRef,
+			}),
+
 			InstanceList = React.createElement(InstanceList, {
-				Size = UDim2.new(1, 0, 1, -propertiesAbsSize.Y),
+				Size = UDim2.new(1, 0, 1, -(propertiesAbsSize.Y + animationAbsSize.Y)),
 
 				ForceRender = forceRender,
 				ListRef = listRef,
@@ -89,7 +101,7 @@ local function Widget(props: Props)
 				end,
 
 				Disabled = props.Disabled,
-				LayoutOrder = 2,
+				LayoutOrder = 3,
 			}),
 		}),
 
