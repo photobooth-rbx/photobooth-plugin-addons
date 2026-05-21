@@ -25,7 +25,7 @@ export type Props = {
 
 local function Animation(props: Props, ref: any)
 	local theme = StudioComponents.useTheme()
-	local disabled = props.Disabled or not props.AnimationManager
+	local disabled = props.Disabled --or not props.AnimationManager
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -81,11 +81,16 @@ local function Animation(props: Props, ref: any)
 						Disabled = disabled,
 					}),
 
-					Time = React.createElement("Frame", {
-						BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground),
-						BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
+					Time = React.createElement(StudioProperties.NumberBox, {
+						BackgroundTransparency = 1,
 						Position = UDim2.fromOffset(24, 0),
 						Size = UDim2.fromOffset(40, 21),
+
+						Value = 123,
+						Step = 0,
+						HighlightMode = "TextboxFocused",
+
+						Disabled = disabled,
 					}),
 
 					Slider = React.createElement(StudioComponents.Slider, {
