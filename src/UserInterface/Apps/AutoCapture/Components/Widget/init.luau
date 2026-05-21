@@ -79,7 +79,7 @@ local function Widget(props: Props)
 				ref = propertiesRef,
 			}),
 
-			Animation = React.createElement(Animation, {
+			Animation = false and React.createElement(Animation, {
 				AnimationManager = props.AnimationManager,
 				Disabled = props.Disabled,
 				LayoutOrder = 2,
