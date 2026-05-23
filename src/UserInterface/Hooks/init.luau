@@ -3,6 +3,7 @@ local useUpdate = require(script.Generic.useUpdate)
 local useConstant = require(script.Generic.useConstant)
 local useMouseDrag = require(script.Generic.useMouseDrag)
 local useSelection = require(script.Generic.useSelection)
+local useProperty = require(script.Generic.useProperty)
 local useRefProperty = require(script.Generic.useRefProperty)
 local useBindingState = require(script.Generic.useBindingState)
 local useInstanceAttribute = require(script.Generic.useInstanceAttribute)
@@ -20,6 +21,7 @@ return {
 	useConstant = useConstant,
 	useMouseDrag = useMouseDrag,
 	useSelection = useSelection,
+	useProperty = useProperty,
 	useRefProperty = useRefProperty,
 	useBindingState = useBindingState,
 	useInstanceAttribute = useInstanceAttribute,

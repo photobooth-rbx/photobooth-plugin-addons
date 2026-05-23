@@ -18,6 +18,8 @@ export type Props = {
 	PaddingTop: number,
 	PaddingBottom: number,
 
+	AnimationTrack: AnimationTrack?,
+
 	OnCaptureRectChanged: (Rect) -> (),
 	OnPaddedRectChanged: (Rect) -> (),
 
@@ -136,6 +138,8 @@ local function Fitter(props: Props)
 				AnchorPoint = Vector2.new(0.5, if props.IsFullScreen then 1 else 0),
 				Position = UDim2.new(0.5, 0, 1, if props.IsFullScreen then -10 else 16),
 				Size = UDim2.fromOffset(300, 28),
+				AnimationTrack = props.AnimationTrack,
+				Disabled = props.Disabled,
 			}),
 		}),
 	})

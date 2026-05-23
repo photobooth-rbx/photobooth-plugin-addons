@@ -1,14 +1,53 @@
+local Players = game:GetService("Players") :: Players
+local RunService = game:GetService("RunService") :: RunService
+
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local ReactRoblox = require(pluginRoot.Packages.ReactRoblox)
 local React = require(pluginRoot.Packages.React)
+local Trove = require(pluginRoot.Packages.Trove)
 
 local FitterWindow = require(script.Parent)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local CreateStory = require(uiRoot.Stories.CreateStory)
 
+local function useAnimationTrack()
+	local animTrack, setAnimTrack = React.useState(nil :: AnimationTrack?)
+
+	React.useEffect(function()
+		local trove = Trove.new()
+		trove:Add(task.spawn(function()
+			local character = trove:Add(Players:CreateHumanoidModelFromUserIdAsync(2155311))
+			local animator = assert(character:FindFirstChildWhichIsA("Animator", true), "No animator")
+
+			character.Name = "Rig"
+			character.Parent = workspace
+
+			local animation = trove:Add(Instance.new("Animation"))
+			animation.AnimationId = "rbxassetid://507770239"
+			animation.Parent = animator
+
+			local track = trove:Add(animator:LoadAnimation(animation))
+			track:Play(0, nil, 0)
+
+			trove:Add(RunService.PreRender:Connect(function(dt)
+				animator:StepAnimations(dt)
+			end))
+
+			setAnimTrack(track)
+		end))
+
+		return function()
+			trove:Destroy()
+		end
+	end, {})
+
+	return animTrack
+end
+
 local function Component(props: { Size: UDim2 })
 	local padding = 5
+	local animationTrack = useAnimationTrack()
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -25,6 +64,8 @@ local function Component(props: { Size: UDim2 })
 			PaddingLeft = padding,
 			PaddingRight = padding,
 			PaddingVisible = true,
+
+			AnimationTrack = animationTrack,
 
 			OnCaptureRectChanged = function(_rect) end,
 			OnPaddedRectChanged = function(_rect) end,
