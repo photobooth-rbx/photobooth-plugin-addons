@@ -90,7 +90,7 @@ local function PlaybackBar(props: Props)
 	end, {})
 
 	return React.createElement("Frame", {
-		BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground),
+		BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Titlebar),
 		BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 
 		AnchorPoint = props.AnchorPoint,
@@ -100,14 +100,19 @@ local function PlaybackBar(props: Props)
 		Visible = not not props.AnimationTrack,
 	}, {
 		UICorner = React.createElement("UICorner", {
-			CornerRadius = UDim.new(0, 6),
+			CornerRadius = UDim.new(0, 2),
+		}),
+
+		UIPadding = React.createElement("UIPadding", {
+			PaddingLeft = UDim.new(0, 4),
+			PaddingRight = UDim.new(0, 4),
 		}),
 
 		Container = React.createElement("Frame", {
 			BackgroundTransparency = 1,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(1, -14, 0, 22),
+			Size = UDim2.new(1, 0, 0, 22),
 		}, {
 			UIListLayout = React.createElement("UIListLayout", {
 				FillDirection = Enum.FillDirection.Horizontal,
@@ -115,11 +120,6 @@ local function PlaybackBar(props: Props)
 				HorizontalAlignment = Enum.HorizontalAlignment.Center,
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				Padding = UDim.new(0, 0),
-			}),
-
-			UIPadding = React.createElement("UIPadding", {
-				PaddingLeft = UDim.new(0, 4),
-				PaddingRight = UDim.new(0, 4),
 			}),
 
 			Button = React.createElement(LucideIconButton, {
@@ -135,32 +135,47 @@ local function PlaybackBar(props: Props)
 
 			PaddingFrame1 = React.createElement("Frame", {
 				BackgroundTransparency = 1,
-				Size = UDim2.new(0, 2, 1, 0),
+				Size = UDim2.new(0, 0, 1, 0),
 				LayoutOrder = 2,
 			}),
 
-			Time = React.createElement(StudioProperties.NumberBox, {
+			TimeBox = React.createElement("Frame", {
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(24, 0),
 				Size = UDim2.fromOffset(28, 22),
-
-				Value = clampValue(track.position, 0.01, 0, track.length),
-				Min = 0,
-				Max = track.length,
-				Step = 0.01,
-				StepButtonsDisabled = true,
-
-				OnValueSubmitted = function(newValue)
-					track.setPosition(newValue)
-					track.setSpeed(0)
-				end,
-
-				HighlightOnFocus = true,
-				HighlightMode = "TextboxFocused",
-
 				LayoutOrder = 3,
-				Disabled = props.Disabled,
-				ref = textBoxRef,
+			}, {
+				UIStroke = React.createElement("UIStroke", {
+					Thickness = 1,
+					Transparency = 0,
+					Color = theme:GetColor(
+						Enum.StudioStyleGuideColor.InputFieldBorder,
+						Enum.StudioStyleGuideModifier.Hover
+					),
+					BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+				}),
+
+				Input = React.createElement(StudioProperties.NumberBox, {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+
+					Value = clampValue(track.position, 0.01, 0, track.length),
+					Min = 0,
+					Max = track.length,
+					Step = 0.01,
+					StepButtonsDisabled = true,
+
+					OnValueSubmitted = function(newValue)
+						track.setPosition(newValue)
+						track.setSpeed(0)
+					end,
+
+					HighlightOnFocus = true,
+					HighlightMode = "TextboxFocused",
+
+					Disabled = props.Disabled,
+					ref = textBoxRef,
+				}),
 			}),
 
 			PaddingFrame2 = React.createElement("Frame", {
@@ -175,7 +190,7 @@ local function PlaybackBar(props: Props)
 				Size = UDim2.new(1, -56, 1, 0),
 				Min = 0,
 				Max = track.length,
-				Value = track.position,
+				Value = math.min(track.length, track.position),
 				OnChanged = function(newValue)
 					track.setPosition(newValue)
 					track.setSpeed(0)
