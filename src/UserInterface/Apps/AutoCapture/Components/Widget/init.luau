@@ -11,7 +11,6 @@ local AutoCaptureRoot = script:FindFirstAncestor("AutoCapture")
 local Controller = require(AutoCaptureRoot.Controller)
 
 local Properties = require(script.Properties)
-local Animation = require(script.Animation)
 
 local BUTTONS_HEIGHT = 38
 
@@ -77,13 +76,6 @@ local function Widget(props: Props)
 				Disabled = props.Disabled,
 				LayoutOrder = 1,
 				ref = propertiesRef,
-			}),
-
-			Animation = false and React.createElement(Animation, {
-				AnimationManager = props.AnimationManager,
-				Disabled = props.Disabled,
-				LayoutOrder = 2,
-				ref = animationRef,
 			}),
 
 			InstanceList = React.createElement(InstanceList, {

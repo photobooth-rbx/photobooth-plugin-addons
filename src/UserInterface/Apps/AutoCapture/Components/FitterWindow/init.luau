@@ -5,6 +5,9 @@ local React = require(pluginRoot.Packages.React)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local Hooks = require(uiRoot.Hooks)
+
+local PlaybackBar = require(script.PlaybackBar)
+
 export type Props = {
 	Resolution: Vector2,
 	IsFullScreen: boolean,
@@ -47,7 +50,7 @@ local function Fitter(props: Props)
 		Size = UDim2.fromScale(1, 1),
 		ClipsDescendants = true,
 	}, {
-		Blinder = React.createElement("Frame", {
+		Focus = React.createElement("Frame", {
 			BackgroundTransparency = 1,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
@@ -127,6 +130,12 @@ local function Fitter(props: Props)
 					-(props.PaddingTop + props.PaddingBottom)
 				),
 				ref = paddedFrameRef,
+			}),
+
+			AnimationBar = React.createElement(PlaybackBar, {
+				AnchorPoint = Vector2.new(0.5, if props.IsFullScreen then 1 else 0),
+				Position = UDim2.new(0.5, 0, 1, if props.IsFullScreen then -10 else 16),
+				Size = UDim2.fromOffset(300, 28),
 			}),
 		}),
 	})
