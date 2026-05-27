@@ -53,7 +53,7 @@ function AnimationManagerClass.loadTrack(self: AnimationManager, options: Option
 		self.trackTrove:Add(track)
 
 		while track.Length == 0 do
-			track:GetPropertyChangedSignal("Length"):Wait()
+			RunService.PreRender:Wait()
 		end
 
 		track:Play(0, nil, 0)
