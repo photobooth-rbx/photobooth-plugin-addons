@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService") :: RunService
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
+
 local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 local Trove = require(pluginRoot.Packages.Trove)
@@ -13,12 +14,15 @@ local Hooks = require(uiRoot.Hooks)
 
 local PLAY_ICON = assert(Lucide.GetAsset("play", 16))
 local PAUSE_ICON = assert(Lucide.GetAsset("pause", 16))
+local STEP_FORWARD_ICON = assert(Lucide.GetAsset("step-forward", 16))
+local STEP_BACKWARD_ICON = assert(Lucide.GetAsset("step-back", 16))
 
 export type Props = {
 	AnchorPoint: Vector2?,
 	Position: UDim2?,
 	Size: UDim2?,
 
+	Transparency: number,
 	AnimationTrack: AnimationTrack?,
 
 	Disabled: boolean?,
@@ -49,8 +53,9 @@ local function useTrackControl(track: AnimationTrack?)
 
 	local setPosition = React.useCallback(function(newPosition: number)
 		if track then
-			track.TimePosition = newPosition
-			setRawPosition(newPosition)
+			local clampedPosition = math.clamp(newPosition, 0, track.Length)
+			track.TimePosition = clampedPosition
+			setRawPosition(clampedPosition)
 		end
 	end, { track })
 
@@ -77,6 +82,44 @@ local function useTrackControl(track: AnimationTrack?)
 	}
 end
 
+local function HoldLucideButton(props: {
+	Size: UDim2,
+	Icon: typeof(PLAY_ICON),
+	OnStep: (number) -> (),
+	LayoutOrder: number,
+	Disabled: boolean?,
+})
+	local stepRef = React.useRef(0)
+	local troveRef = React.useRef(Trove.new())
+
+	return React.createElement(LucideIconButton, {
+		Size = props.Size,
+		Icon = props.Icon,
+
+		OnMouseButton1Down = function()
+			troveRef.current:Add(task.spawn(function()
+				stepRef.current += 1
+				props.OnStep(stepRef.current)
+
+				task.wait(0.1)
+
+				while true do
+					stepRef.current += 1
+					props.OnStep(stepRef.current)
+					task.wait(0.01)
+				end
+			end))
+		end,
+		OnMouseButton1Up = function()
+			troveRef.current:Clean()
+			stepRef.current = 0
+		end,
+
+		LayoutOrder = props.LayoutOrder,
+		Disabled = props.Disabled,
+	})
+end
+
 local function PlaybackBar(props: Props)
 	local theme = StudioComponents.useTheme()
 	local track = useTrackControl(props.AnimationTrack)
@@ -90,115 +133,146 @@ local function PlaybackBar(props: Props)
 	end, {})
 
 	return React.createElement("Frame", {
-		BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Titlebar),
-		BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
-
-		AnchorPoint = props.AnchorPoint,
-		Position = props.Position,
-		Size = props.Size,
-
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
 		Visible = not not props.AnimationTrack,
 	}, {
-		UICorner = React.createElement("UICorner", {
-			CornerRadius = UDim.new(0, 2),
-		}),
-
-		UIPadding = React.createElement("UIPadding", {
-			PaddingLeft = UDim.new(0, 4),
-			PaddingRight = UDim.new(0, 4),
-		}),
-
-		Container = React.createElement("Frame", {
+		Hover = React.createElement("Frame", {
 			BackgroundTransparency = 1,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(1, 0, 0, 22),
+			Size = UDim2.fromScale(1, 1),
+		}),
+
+		Canvas = React.createElement("CanvasGroup", {
+			GroupTransparency = props.Transparency,
+			BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Titlebar),
+			BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
+			AnchorPoint = props.AnchorPoint,
+			Position = props.Position,
+			Size = props.Size,
 		}, {
-			UIListLayout = React.createElement("UIListLayout", {
-				FillDirection = Enum.FillDirection.Horizontal,
-				VerticalAlignment = Enum.VerticalAlignment.Center,
-				HorizontalAlignment = Enum.HorizontalAlignment.Center,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, 0),
+			UICorner = React.createElement("UICorner", {
+				CornerRadius = UDim.new(0, 2),
 			}),
 
-			Button = React.createElement(LucideIconButton, {
-				Size = UDim2.fromOffset(22, 22),
-				Icon = if track.speed > 0 then PAUSE_ICON else PLAY_ICON,
-				OnActivated = function()
-					local newSpeed = if track.speed > 0 then 0 else 1
-					track.setSpeed(newSpeed)
-				end,
-				LayoutOrder = 1,
-				Disabled = props.Disabled,
+			UIPadding = React.createElement("UIPadding", {
+				PaddingLeft = UDim.new(0, 4),
+				PaddingRight = UDim.new(0, 4),
 			}),
 
-			PaddingFrame1 = React.createElement("Frame", {
+			Container = React.createElement("Frame", {
 				BackgroundTransparency = 1,
-				Size = UDim2.new(0, 0, 1, 0),
-				LayoutOrder = 2,
-			}),
-
-			TimeBox = React.createElement("Frame", {
-				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(24, 0),
-				Size = UDim2.fromOffset(28, 22),
-				LayoutOrder = 3,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.new(1, 0, 0, 22),
 			}, {
-				UIStroke = React.createElement("UIStroke", {
-					Thickness = 1,
-					Transparency = 0,
-					Color = theme:GetColor(
-						Enum.StudioStyleGuideColor.InputFieldBorder,
-						Enum.StudioStyleGuideModifier.Hover
-					),
-					BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+				UIListLayout = React.createElement("UIListLayout", {
+					FillDirection = Enum.FillDirection.Horizontal,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
+					HorizontalAlignment = Enum.HorizontalAlignment.Center,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, 0),
 				}),
 
-				Input = React.createElement(StudioProperties.NumberBox, {
-					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 1),
+				StepBackward = React.createElement(HoldLucideButton, {
+					Size = UDim2.fromOffset(22, 22),
+					Icon = STEP_BACKWARD_ICON,
+					OnStep = function(steps)
+						track.setPosition(track.position - 0.01 * steps)
+					end,
+					LayoutOrder = 1,
+					Disabled = props.Disabled,
+				}),
 
-					Value = clampValue(track.position, 0.01, 0, track.length),
+				PlayPause = React.createElement(LucideIconButton, {
+					Size = UDim2.fromOffset(22, 22),
+					Icon = if track.speed > 0 then PAUSE_ICON else PLAY_ICON,
+					OnActivated = function()
+						local newSpeed = if track.speed > 0 then 0 else 1
+						track.setSpeed(newSpeed)
+					end,
+					LayoutOrder = 2,
+					Disabled = props.Disabled,
+				}),
+
+				StepForward = React.createElement(HoldLucideButton, {
+					Size = UDim2.fromOffset(22, 22),
+					Icon = STEP_FORWARD_ICON,
+					OnStep = function(steps)
+						track.setPosition(track.position + 0.01 * steps)
+					end,
+					LayoutOrder = 3,
+					Disabled = props.Disabled,
+				}),
+
+				PaddingFrame1 = React.createElement("Frame", {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 2, 1, 0),
+					LayoutOrder = 4,
+				}),
+
+				TimeBox = React.createElement("Frame", {
+					BackgroundTransparency = 1,
+					Position = UDim2.fromOffset(24, 0),
+					Size = UDim2.fromOffset(32, 22),
+					LayoutOrder = 5,
+				}, {
+					UIStroke = React.createElement("UIStroke", {
+						Thickness = 1,
+						Transparency = 0,
+						Color = theme:GetColor(
+							Enum.StudioStyleGuideColor.InputFieldBorder,
+							Enum.StudioStyleGuideModifier.Hover
+						),
+						BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+					}),
+
+					Input = React.createElement(StudioProperties.NumberBox, {
+						BackgroundTransparency = 1,
+						Size = UDim2.fromScale(1, 1),
+
+						Value = clampValue(track.position, 0.01, 0, track.length),
+						Min = 0,
+						Max = track.length,
+						Step = 0.01,
+						StepButtonsDisabled = true,
+
+						OnValueSubmitted = function(newValue)
+							track.setPosition(newValue)
+							track.setSpeed(0)
+						end,
+
+						HighlightOnFocus = true,
+						HighlightMode = "TextboxFocused",
+
+						Disabled = props.Disabled,
+						ref = textBoxRef,
+					}),
+				}),
+
+				PaddingFrame2 = React.createElement("Frame", {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 4, 1, 0),
+					LayoutOrder = 6,
+				}),
+
+				Slider = React.createElement(StudioComponents.Slider, {
+					AnchorPoint = Vector2.new(1, 0.5),
+					Position = UDim2.fromScale(1, 0.5),
+					Size = UDim2.new(1, -106, 1, 0),
 					Min = 0,
 					Max = track.length,
-					Step = 0.01,
-					StepButtonsDisabled = true,
-
-					OnValueSubmitted = function(newValue)
+					Value = math.min(track.length, track.position),
+					OnChanged = function(newValue)
 						track.setPosition(newValue)
 						track.setSpeed(0)
 					end,
-
-					HighlightOnFocus = true,
-					HighlightMode = "TextboxFocused",
-
+					Background = false,
+					Border = false,
+					LayoutOrder = 7,
 					Disabled = props.Disabled,
-					ref = textBoxRef,
 				}),
-			}),
-
-			PaddingFrame2 = React.createElement("Frame", {
-				BackgroundTransparency = 1,
-				Size = UDim2.new(0, 4, 1, 0),
-				LayoutOrder = 4,
-			}),
-
-			Slider = React.createElement(StudioComponents.Slider, {
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.fromScale(1, 0.5),
-				Size = UDim2.new(1, -56, 1, 0),
-				Min = 0,
-				Max = track.length,
-				Value = math.min(track.length, track.position),
-				OnChanged = function(newValue)
-					track.setPosition(newValue)
-					track.setSpeed(0)
-				end,
-				Background = false,
-				Border = false,
-				LayoutOrder = 5,
-				Disabled = props.Disabled,
 			}),
 		}),
 	})

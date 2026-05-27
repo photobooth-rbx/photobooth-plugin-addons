@@ -11,6 +11,8 @@ export type Props = {
 	IconSize: UDim2?,
 	Icon: typeof(assert(Lucide.GetAsset("", 16))),
 	OnActivated: () -> ()?,
+	OnMouseButton1Down: () -> ()?,
+	OnMouseButton1Up: () -> ()?,
 
 	LayoutOrder: number?,
 	Disabled: boolean?,
@@ -25,9 +27,14 @@ local function LucideIconButton(props: Props)
 	React.useEffect(function()
 		local connection
 		if isSelected and inputObjectRef.current then
+			local reconciled = false
 			connection = inputObjectRef.current:GetPropertyChangedSignal("UserInputState"):Connect(function()
-				if inputObjectRef.current.UserInputState == Enum.UserInputState.End then
+				if not reconciled and inputObjectRef.current.UserInputState == Enum.UserInputState.End then
+					reconciled = true
 					setIsSelected(false)
+					if props.OnMouseButton1Up then
+						props.OnMouseButton1Up()
+					end
 				end
 			end)
 		end
@@ -37,7 +44,7 @@ local function LucideIconButton(props: Props)
 				connection:Disconnect()
 			end
 		end
-	end, { isSelected })
+	end, { isSelected, props.OnMouseButton1Up } :: { any })
 
 	return React.createElement("ImageButton", {
 		BackgroundTransparency = 1,
@@ -50,6 +57,9 @@ local function LucideIconButton(props: Props)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				inputObjectRef.current = input
 				setIsSelected(true)
+				if props.OnMouseButton1Down then
+					props.OnMouseButton1Down()
+				end
 			end
 		end,
 

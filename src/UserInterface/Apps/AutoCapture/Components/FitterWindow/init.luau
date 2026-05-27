@@ -1,6 +1,7 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
+local ReactRipple = require(pluginRoot.Packages.ReactRipple)
 local React = require(pluginRoot.Packages.React)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
@@ -26,8 +27,17 @@ export type Props = {
 	Disabled: boolean?,
 }
 
+local function useHoverTransparency(initial: number)
+	local transparencyBinding, control = ReactRipple.useSpring(initial)
+	local transparency = Hooks.useBindingState(transparencyBinding)
+	return transparency, React.useCallback(function(value: number)
+		control:setGoal(value)
+	end, {})
+end
+
 local function Fitter(props: Props)
 	local theme = StudioComponents.useTheme()
+	local hoverTransparency, setHoverTransparency = useHoverTransparency(0.7)
 
 	local captureFrameRef = React.useRef(nil)
 	local captureFrameAbsPosition = Hooks.useRefProperty(captureFrameRef, "AbsolutePosition", Vector2.zero)
@@ -51,6 +61,13 @@ local function Fitter(props: Props)
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 		ClipsDescendants = true,
+
+		[React.Event.MouseEnter] = function()
+			setHoverTransparency(0)
+		end,
+		[React.Event.MouseLeave] = function()
+			setHoverTransparency(0.7)
+		end,
 	}, {
 		Focus = React.createElement("Frame", {
 			BackgroundTransparency = 1,
@@ -135,9 +152,10 @@ local function Fitter(props: Props)
 			}),
 
 			AnimationBar = React.createElement(PlaybackBar, {
-				AnchorPoint = Vector2.new(0.5, if props.IsFullScreen then 1 else 0),
-				Position = UDim2.new(0.5, 0, 1, if props.IsFullScreen then -10 else 16),
-				Size = UDim2.new(1, 0, 0, 28),
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.new(0.5, 0, 1, 8),
+				Size = UDim2.new(0, 300, 0, 28),
+				Transparency = hoverTransparency,
 				AnimationTrack = props.AnimationTrack,
 				Disabled = props.Disabled,
 			}),
