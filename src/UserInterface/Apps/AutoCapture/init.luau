@@ -132,6 +132,11 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							local prevFocusedModelState = controller:getFocusedModelState()
 							for _, modelState in modelStateRef.current do
 								controller:focus(modelState)
+
+								while not observableState:get().AnimationTrack do
+									observableState:waitForChange()
+								end
+
 								Photobooth.yieldUntilNextFrame()
 
 								local result = controller:capture()
