@@ -4,6 +4,7 @@ local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local AnimationManager = require(script.AnimationManager)
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
+local Signal = require(pluginRoot.Packages.Signal)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local PointCloud = require(script.PointCloud)
@@ -44,6 +45,8 @@ function AutoCaptureControllerStatic.new(observableState: ObservableState)
 	self.captureRect = Rect.new(0, 0, 0, 0)
 	self.paddedRect = Rect.new(0, 0, 0, 0)
 	self.observableState = observableState
+
+	self.forcePointCloudRefresh = Signal.new()
 
 	self.focusTrove = Trove.new()
 	self.refreshTrove = Trove.new()
@@ -182,6 +185,10 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		end
 	end))
 
+	self.refreshTrove:Add(self.forcePointCloudRefresh:Connect(function()
+		pointCloud:recalculateVertices()
+	end))
+
 	self.refreshTrove:Add(cameraStep(function()
 		local camera = workspace.CurrentCamera
 		local cameraCF = camera.CFrame
@@ -276,6 +283,9 @@ function AutoCaptureControllerClass._listenForAnimation(self: AutoCaptureControl
 			timePosition = modelState.animation.timePosition,
 			onStep = function(track)
 				modelState.animation.timePosition = track.TimePosition
+			end,
+			onTrackPositionChanged = function()
+				self.forcePointCloudRefresh:Fire()
 			end,
 			onTrackLoaded = function(track)
 				self.observableState:update()(function(state)
@@ -382,6 +392,8 @@ export type AutoCaptureController = typeof(setmetatable(
 		paddedRect: Rect,
 		focusedModelState: ModelState?,
 		observableState: ObservableState,
+
+		forcePointCloudRefresh: Signal.Signal<()>,
 
 		focusTrove: Trove.Trove,
 		refreshTrove: Trove.Trove,

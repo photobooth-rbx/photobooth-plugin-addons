@@ -38,6 +38,7 @@ end
 type Options = {
 	timePosition: number,
 	onStep: (AnimationTrack) -> (),
+	onTrackPositionChanged: (AnimationTrack) -> (),
 	onTrackLoaded: (AnimationTrack) -> (),
 	onTrackUnloaded: () -> (),
 }
@@ -50,6 +51,7 @@ function AnimationManagerClass.loadTrack(self: AnimationManager, options: Option
 		end
 
 		local track = self.animator:LoadAnimation(self.animation)
+		track.Looped = true
 		self.trackTrove:Add(track)
 
 		while track.Length == 0 do
@@ -59,8 +61,13 @@ function AnimationManagerClass.loadTrack(self: AnimationManager, options: Option
 		track:Play(0, nil, 0)
 		track.TimePosition = options.timePosition
 
+		local prevTimePosition = -1
 		self.trackTrove:Add(RunService.PreRender:Connect(function()
 			options.onStep(track)
+			if prevTimePosition ~= track.TimePosition then
+				prevTimePosition = track.TimePosition
+				options.onTrackPositionChanged(track)
+			end
 		end))
 
 		self.trackTrove:Add(function()
