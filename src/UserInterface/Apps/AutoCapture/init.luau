@@ -59,7 +59,6 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 	local function App()
 		local dockRef = React.useRef(dock)
 		local modelStateRef = React.useRef({} :: { [Widget.ListElement]: Controller.ModelState })
-		local selectedModelState, setSelectedModelState = React.useState(nil :: Controller.ModelState?)
 
 		local observedState = observableState:use()
 		local captureRect, setCaptureRect = React.useState(Rect.new(0, 0, 0, 0))
@@ -169,9 +168,6 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 					if modelState then
 						controller:focus(modelState)
 					end
-
-					print(modelState)
-					setSelectedModelState(modelState)
 				end,
 				OnListElementAdded = function(element)
 					if not modelStateRef.current[element] then
@@ -184,7 +180,10 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 						modelStateRef.current[element] = {
 							instance = model,
 							cameraCF = CFrame.identity,
-							animationManager = Controller.createAnimationManager(model),
+							animation = {
+								content = Content.none,
+								timePosition = 0,
+							}
 						}
 					end
 				end,
@@ -195,7 +194,6 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 					end
 				end,
 
-				AnimationManager = selectedModelState and selectedModelState.animationManager,
 				ObservableState = observableState,
 				CaptureRect = captureRect,
 				Disabled = disabled,
@@ -234,6 +232,8 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 						OnPaddedRectChanged = function(newRect)
 							controller:setPaddedRect(newRect)
 						end,
+
+						AnimationTrack = observedState.AnimationTrack,
 
 						Disabled = disabled,
 					}),

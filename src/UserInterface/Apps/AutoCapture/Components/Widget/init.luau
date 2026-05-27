@@ -26,7 +26,6 @@ export type Props = {
 	OnListElementSelected: (ListElement?) -> (),
 	OnListElementRemoved: (ListElement) -> (),
 	ObservableState: Controller.ObservableState,
-	AnimationManager: Controller.AnimationManager?,
 	CaptureRect: Rect,
 	Disabled: boolean?,
 }

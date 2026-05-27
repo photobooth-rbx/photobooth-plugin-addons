@@ -1,12 +1,12 @@
 local RunService = game:GetService("RunService") :: RunService
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local AnimationManager = require(script.AnimationManager)
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local PointCloud = require(script.PointCloud)
-local AnimationManager = require(script.AnimationManager)
 
 local AutoCaptureControllerStatic = {}
 
@@ -33,11 +33,9 @@ function AutoCaptureControllerStatic.createState()
 		PaddingRight = 0,
 		PaddingBottom = 0,
 		PaddingLeft = 0,
-	})
-end
 
-function AutoCaptureControllerStatic.createAnimationManager(model: Model)
-	return AnimationManager.new(model)
+		AnimationTrack = nil :: AnimationTrack?,
+	})
 end
 
 function AutoCaptureControllerStatic.new(observableState: ObservableState)
@@ -260,6 +258,53 @@ function AutoCaptureControllerClass._refreshFitType(self: AutoCaptureController)
 	end
 end
 
+function AutoCaptureControllerClass._listenForAnimation(self: AutoCaptureController, modelState: ModelState)
+	local animator = modelState.instance:FindFirstChildWhichIsA("Animator", true)
+	if not animator then
+		return
+	end
+
+	local animation = Instance.new("Animation")
+	animation.AnimationId = modelState.animation.content.Uri or ""
+	animation.Parent = workspace.CurrentCamera
+	self.focusTrove:Add(animation)
+
+	local animationManager = AnimationManager.new(animator, animation)
+
+	local function refreshTrack()
+		animationManager:loadTrack({
+			timePosition = modelState.animation.timePosition,
+			onStep = function(track)
+				modelState.animation.timePosition = track.TimePosition
+			end,
+			onTrackLoaded = function(track)
+				self.observableState:update()(function(state)
+					state.AnimationTrack = track
+					return state
+				end)
+			end,
+			onTrackUnloaded = function()
+				self.observableState:update()(function(state)
+					state.AnimationTrack = nil
+					return state
+				end)
+			end,
+		})
+	end
+
+	refreshTrack()
+	self.focusTrove:Add(animation:GetPropertyChangedSignal("AnimationId"):Connect(function()
+		animationManager:clearTrack()
+		modelState.animation.content = Content.fromUri(animation.AnimationId)
+		modelState.animation.timePosition = 0
+		refreshTrack()
+	end))
+
+	self.focusTrove:Add(function()
+		animationManager:Destroy()
+	end)
+end
+
 function AutoCaptureControllerClass.setCaptureRect(self: AutoCaptureController, rect: Rect)
 	self.captureRect = rect
 end
@@ -283,6 +328,8 @@ function AutoCaptureControllerClass.focus(self: AutoCaptureController, modelStat
 		self.focusedModelState = nil
 		workspace.CurrentCamera.CameraType = cameraType
 	end)
+
+	self:_listenForAnimation(modelState)
 
 	local fitType = self.observableState:get().FitType
 	self:_refreshFitType()
@@ -320,12 +367,13 @@ end
 export type State = typeof(AutoCaptureControllerStatic.createState():get())
 export type ObservableState = ObservableValue.ObservableValue<State>
 
-export type AnimationManager = AnimationManager.AnimationManager
-
 export type ModelState = {
 	instance: Model,
 	cameraCF: CFrame,
-	animationManager: AnimationManager.AnimationManager,
+	animation: {
+		content: Content,
+		timePosition: number,
+	},
 }
 
 export type AutoCaptureController = typeof(setmetatable(

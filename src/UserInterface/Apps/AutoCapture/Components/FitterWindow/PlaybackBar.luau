@@ -73,6 +73,13 @@ local function useTrackControl(track: AnimationTrack?)
 		end
 	end, { track, speed, setPosition } :: { any })
 
+	React.useEffect(function()
+		if track then
+			setSpeed(track.Speed)
+			setPosition(track.TimePosition)
+		end
+	end, { track })
+
 	return {
 		length = length,
 		speed = speed,
