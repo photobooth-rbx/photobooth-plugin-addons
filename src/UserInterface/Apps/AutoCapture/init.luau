@@ -41,7 +41,7 @@ end
 function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 	-- stylua: ignore
 	local button = toolbar:CreateButton(
-		"egomoose_photobooth_addon_auto_capture", 
+		"egomoose_photobooth_addon_auto_capture",
 		"Photobooth Auto Capture", "", "Auto"
 	)
 
@@ -89,158 +89,158 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 		dock.Enabled = isEnabled
 		button:SetActive(isEnabled)
 
-		-- stylua: ignore
-		return isEnabled and React.createElement(React.Fragment, nil, {
-			Widget = React.createElement(Widget, {
-				OnCapture = function()
-					setDisabled(true)
+		return isEnabled
+			and React.createElement(React.Fragment, nil, {
+				Widget = React.createElement(Widget, {
+					OnCapture = function()
+						setDisabled(true)
 
-					local success, err: string? = pcall(function()
-						assert(Photobooth.isConnected(), "Photobooth not detected.")
-						assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
+						local success, err: string? = pcall(function()
+							assert(Photobooth.isConnected(), "Photobooth not detected.")
+							assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
 
-						hideWorkspace(function()
-							local focusedModelState = controller:getFocusedModelState()
-							if focusedModelState then
-								local result = controller:capture()
-								if result then
-									result.Name = focusedModelState.instance.Name
-									result.Parent = game:GetService("StarterGui")
+							hideWorkspace(function()
+								local focusedModelState = controller:getFocusedModelState()
+								if focusedModelState then
+									local result = controller:capture()
+									if result then
+										result.Name = focusedModelState.instance.Name
+										result.Parent = game:GetService("StarterGui")
 
-									plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
-									SelectionService:Set({ result })
+										plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
+										SelectionService:Set({ result })
+									end
 								end
-							end
+							end)
 						end)
-					end)
 
-					if not success then
-						warn(err)
-					end
+						if not success then
+							warn(err)
+						end
 
-					setDisabled(false)
-				end,
-				OnCaptureAll = function()
-					setDisabled(true)
+						setDisabled(false)
+					end,
+					OnCaptureAll = function()
+						setDisabled(true)
 
-					local success, err: string? = pcall(function()
-						assert(Photobooth.isConnected(), "Photobooth not detected.")
-						assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
+						local success, err: string? = pcall(function()
+							assert(Photobooth.isConnected(), "Photobooth not detected.")
+							assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
 
-						hideWorkspace(function()
-							local folder = Instance.new("Folder")
-							local prevFocusedModelState = controller:getFocusedModelState()
-							for _, modelState in modelStateRef.current do
-								controller:focusAsync(modelState)
-								Photobooth.yieldUntilNextFrame()
+							hideWorkspace(function()
+								local folder = Instance.new("Folder")
+								local prevFocusedModelState = controller:getFocusedModelState()
+								for _, modelState in modelStateRef.current do
+									controller:focusAsync(modelState)
+									Photobooth.yieldUntilNextFrame()
 
-								local result = controller:capture()
-								if result then
-									result.Name = modelState.instance.Name
-									result.Parent = folder
+									local result = controller:capture()
+									if result then
+										result.Name = modelState.instance.Name
+										result.Parent = folder
+									end
 								end
-							end
 
-							folder.Name = "AutoCaptures"
-							folder.Parent = game:GetService("StarterGui")
+								folder.Name = "AutoCaptures"
+								folder.Parent = game:GetService("StarterGui")
 
-							plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
-							SelectionService:Set({ folder })
+								plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
+								SelectionService:Set({ folder })
 
-							if prevFocusedModelState then
-								controller:focusAsync(prevFocusedModelState)
-							else
-								controller:unfocus()
-							end
+								if prevFocusedModelState then
+									controller:focusAsync(prevFocusedModelState)
+								else
+									controller:unfocus()
+								end
+							end)
 						end)
-					end)
 
-					if not success then
-						warn(err)
-					end
-					setDisabled(false)
-				end,
+						if not success then
+							warn(err)
+						end
+						setDisabled(false)
+					end,
 
-				OnListElementSelected = function(element)
-					controller:unfocus()
+					OnListElementSelected = function(element)
+						controller:unfocus()
 
-					local modelState = element and modelStateRef.current[element]
-					if modelState then
-						controller:focusAsync(modelState)
-					end
-				end,
-				OnListElementAdded = function(element)
-					if not modelStateRef.current[element] then
-						local pvInstanceCopy = element.instance:Clone()
-						local model = Instance.new("Model")
-						pvInstanceCopy.Parent = model
-						model.Name = pvInstanceCopy.Name
-						model.WorldPivot = model:GetPivot() * pvInstanceCopy:GetPivot().Rotation:Inverse()
-						model:PivotTo(CFrame.identity)
-						modelStateRef.current[element] = {
-							instance = model,
-							cameraCF = CFrame.identity,
-							animation = {
-								content = Content.none,
-								timePosition = 0,
+						local modelState = element and modelStateRef.current[element]
+						if modelState then
+							controller:focusAsync(modelState)
+						end
+					end,
+					OnListElementAdded = function(element)
+						if not modelStateRef.current[element] then
+							local pvInstanceCopy = element.instance:Clone()
+							local model = Instance.new("Model")
+							pvInstanceCopy.Parent = model
+							model.Name = pvInstanceCopy.Name
+							model.WorldPivot = model:GetPivot() * pvInstanceCopy:GetPivot().Rotation:Inverse()
+							model:PivotTo(CFrame.identity)
+							modelStateRef.current[element] = {
+								instance = model,
+								cameraCF = CFrame.identity,
+								animation = {
+									content = Content.none,
+									timePosition = 0,
+								},
 							}
-						}
-					end
-				end,
-				OnListElementRemoved = function(element)
-					if modelStateRef.current[element] then
-						modelStateRef.current[element].instance:Destroy()
-						modelStateRef.current[element] = nil
-					end
-				end,
+						end
+					end,
+					OnListElementRemoved = function(element)
+						if modelStateRef.current[element] then
+							modelStateRef.current[element].instance:Destroy()
+							modelStateRef.current[element] = nil
+						end
+					end,
 
-				ObservableState = observableState,
-				CaptureRect = captureRect,
-				Disabled = disabled,
-			}),
-
-			FitterWindow = ReactRoblox.createPortal(
-				React.createElement("ScreenGui", {
-					Name = "FitterWindow",
-					Archivable = false,
-					IgnoreGuiInset = true,
-					ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-				}, {
-					Core = React.createElement(FitterWindow, {
-						IsFullScreen = observedState.IsFullScreen,
-						Resolution = observedState.CaptureSize,
-
-						PaddingVisible = observedState.FitType ~= "Free" and observedState.PaddingVisible,
-						PaddingTop = if observedState.PaddingUniform
-							then observedState.Padding
-							else observedState.PaddingTop,
-						PaddingBottom = if observedState.PaddingUniform
-							then observedState.Padding
-							else observedState.PaddingBottom,
-						PaddingLeft = if observedState.PaddingUniform
-							then observedState.Padding
-							else observedState.PaddingLeft,
-						PaddingRight = if observedState.PaddingUniform
-							then observedState.Padding
-							else observedState.PaddingRight,
-
-						OnCaptureRectChanged = function(newRect)
-							controller:setCaptureRect(newRect)
-							setCaptureRect(newRect)
-						end,
-
-						OnPaddedRectChanged = function(newRect)
-							controller:setPaddedRect(newRect)
-						end,
-
-						AnimationTrack = observedState.AnimationTrack,
-
-						Disabled = disabled,
-					}),
+					ObservableState = observableState,
+					CaptureRect = captureRect,
+					Disabled = disabled,
 				}),
-				CoreGui
-			),
-		})
+
+				FitterWindow = ReactRoblox.createPortal(
+					React.createElement("ScreenGui", {
+						Name = "FitterWindow",
+						Archivable = false,
+						IgnoreGuiInset = true,
+						ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+					}, {
+						Core = React.createElement(FitterWindow, {
+							IsFullScreen = observedState.IsFullScreen,
+							Resolution = observedState.CaptureSize,
+
+							PaddingVisible = observedState.FitType ~= "Free" and observedState.PaddingVisible,
+							PaddingTop = if observedState.PaddingUniform
+								then observedState.Padding
+								else observedState.PaddingTop,
+							PaddingBottom = if observedState.PaddingUniform
+								then observedState.Padding
+								else observedState.PaddingBottom,
+							PaddingLeft = if observedState.PaddingUniform
+								then observedState.Padding
+								else observedState.PaddingLeft,
+							PaddingRight = if observedState.PaddingUniform
+								then observedState.Padding
+								else observedState.PaddingRight,
+
+							OnCaptureRectChanged = function(newRect)
+								controller:setCaptureRect(newRect)
+								setCaptureRect(newRect)
+							end,
+
+							OnPaddedRectChanged = function(newRect)
+								controller:setPaddedRect(newRect)
+							end,
+
+							AnimationTrack = observedState.AnimationTrack,
+
+							Disabled = disabled,
+						}),
+					}),
+					CoreGui
+				),
+			})
 	end
 
 	local dockRoot = ReactRoblox.createRoot(dock)
