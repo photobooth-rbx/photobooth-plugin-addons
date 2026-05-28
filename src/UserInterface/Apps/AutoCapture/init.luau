@@ -133,7 +133,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							for _, modelState in modelStateRef.current do
 								controller:focus(modelState)
 
-								while not observableState:get().AnimationTrack do
+								while modelState.animation.content ~= Content.none and not observableState:get().AnimationTrack do
 									observableState:waitForChange()
 								end
 
@@ -259,6 +259,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 		dockRoot:unmount()
 		dock:Destroy()
 		button:Destroy()
+		controller:Destroy()
 	end)
 end
 

@@ -35,10 +35,14 @@ function PriorityStepperStatic.new(signal: RBXScriptSignal<number>)
 			info.callback(dt)
 		end
 
-		for thread, _ in self.awaitingThreads do
-			task.spawn(thread)
+		local awaitingThreads = self.awaitingThreads
+		self.awaitingThreads = {}
+
+		for thread, _ in awaitingThreads do
+			if coroutine.status(thread) == "suspended" then
+				task.spawn(thread, dt)
+			end
 		end
-		table.clear(self.awaitingThreads)
 	end)
 
 	return self
@@ -72,7 +76,8 @@ end
 function PriorityStepperClass.wait(self: PriorityStepper)
 	local myThread = coroutine.running()
 	self.awaitingThreads[myThread] = true
-	coroutine.yield()
+	local dt: number = coroutine.yield()
+	return dt
 end
 
 function PriorityStepperClass.Destroy(self: PriorityStepper)
