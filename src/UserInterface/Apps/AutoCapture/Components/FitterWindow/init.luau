@@ -51,7 +51,7 @@ local function Fitter(props: Props)
 	local paddedFrameRef = React.useRef(nil)
 	local paddedFrameAbsPosition = Hooks.useRefProperty(paddedFrameRef, "AbsolutePosition", Vector2.zero)
 	local paddedFrameAbsSize = Hooks.useRefProperty(paddedFrameRef, "AbsoluteSize", Vector2.zero)
-	local paddedRect = Photobooth.rect.fromAbs(paddedFrameAbsPosition, paddedFrameAbsSize)
+	local paddedRect = Rect.new(paddedFrameAbsPosition, paddedFrameAbsPosition + paddedFrameAbsSize)
 
 	React.useEffect(function()
 		props.OnPaddedRectChanged(paddedRect)
