@@ -43,7 +43,7 @@ type Options = {
 	timePosition: number,
 	onStep: (AnimationTrack) -> (),
 	onTrackPositionChanged: (AnimationTrack) -> (),
-	onTrackLoaded: (AnimationTrack) -> (),
+	onTrackLoaded: (AnimationTrack?) -> (),
 	onTrackUnloaded: () -> (),
 }
 
@@ -51,6 +51,7 @@ function AnimationManagerClass.loadTrack(self: AnimationManager, options: Option
 	self.trackTrove:Clean()
 	self.trackTrove:Add(task.spawn(function()
 		if Content.fromUri(self.animation.AnimationId) == Content.none then
+			options.onTrackLoaded(nil)
 			return
 		end
 

@@ -131,12 +131,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							local folder = Instance.new("Folder")
 							local prevFocusedModelState = controller:getFocusedModelState()
 							for _, modelState in modelStateRef.current do
-								controller:focus(modelState)
-
-								while modelState.animation.content ~= Content.none and not observableState:get().AnimationTrack do
-									observableState:waitForChange()
-								end
-
+								controller:focusAsync(modelState)
 								Photobooth.yieldUntilNextFrame()
 
 								local result = controller:capture()
@@ -153,7 +148,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							SelectionService:Set({ folder })
 
 							if prevFocusedModelState then
-								controller:focus(prevFocusedModelState)
+								controller:focusAsync(prevFocusedModelState)
 							else
 								controller:unfocus()
 							end
@@ -171,7 +166,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 
 					local modelState = element and modelStateRef.current[element]
 					if modelState then
-						controller:focus(modelState)
+						controller:focusAsync(modelState)
 					end
 				end,
 				OnListElementAdded = function(element)

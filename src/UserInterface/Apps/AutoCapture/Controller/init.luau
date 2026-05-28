@@ -4,6 +4,7 @@ local PriorityStepper = require(pluginRoot.Utilities.PriorityStepper)
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
 local Signal = require(pluginRoot.Packages.Signal)
+local Future = require(pluginRoot.Packages.Future)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local appRoot = script:FindFirstAncestor("AutoCapture")
@@ -268,7 +269,7 @@ function AutoCaptureControllerClass._refreshFitType(self: AutoCaptureController)
 	end
 end
 
-function AutoCaptureControllerClass._listenForAnimation(self: AutoCaptureController, modelState: ModelState)
+function AutoCaptureControllerClass._loadAnimationAsync(self: AutoCaptureController, modelState: ModelState)
 	local animator = modelState.instance:FindFirstChildWhichIsA("Animator", true)
 	if not animator then
 		return
@@ -279,6 +280,7 @@ function AutoCaptureControllerClass._listenForAnimation(self: AutoCaptureControl
 	animation.Parent = workspace.CurrentCamera
 	self.focusTrove:Add(animation)
 
+	local animationReady = Future.new()
 	local animationManager = AnimationManager.new(animator, animation)
 
 	local function refreshTrack()
@@ -291,10 +293,16 @@ function AutoCaptureControllerClass._listenForAnimation(self: AutoCaptureControl
 				self.forcePointCloudRefresh:Fire()
 			end,
 			onTrackLoaded = function(track)
-				self.observableState:update()(function(state)
-					state.AnimationTrack = track
-					return state
-				end)
+				if track then
+					self.observableState:update()(function(state)
+						state.AnimationTrack = track
+						return state
+					end)
+				end
+
+				if not animationReady:isCompleted() then
+					animationReady:complete()
+				end
 			end,
 			onTrackUnloaded = function()
 				self.observableState:update()(function(state)
@@ -313,9 +321,7 @@ function AutoCaptureControllerClass._listenForAnimation(self: AutoCaptureControl
 		refreshTrack()
 	end))
 
-	self.focusTrove:Add(function()
-		animationManager:Destroy()
-	end)
+	animationReady:expect()
 end
 
 function AutoCaptureControllerClass.setCaptureRect(self: AutoCaptureController, rect: Rect)
@@ -330,29 +336,46 @@ function AutoCaptureControllerClass.getFocusedModelState(self: AutoCaptureContro
 	return self.focusedModelState
 end
 
-function AutoCaptureControllerClass.focus(self: AutoCaptureController, modelState: ModelState)
+function AutoCaptureControllerClass.focusAsync(self: AutoCaptureController, modelState: ModelState)
 	self:unfocus()
 
-	modelState.instance.Parent = workspace.CurrentCamera
-	self.focusedModelState = modelState
 	local cameraType = workspace.CurrentCamera.CameraType
+	modelState.instance.Parent = workspace.CurrentCamera
+
 	self.focusTrove:Add(function()
-		modelState.instance.Parent = nil
-		self.focusedModelState = nil
 		workspace.CurrentCamera.CameraType = cameraType
+		modelState.instance.Parent = nil
 	end)
 
-	self:_listenForAnimation(modelState)
+	local focusReady = Future.new()
+	self.focusTrove:Add(task.spawn(function()
+		self:_loadAnimationAsync(modelState)
 
-	local fitType = self.observableState:get().FitType
-	self:_refreshFitType()
-	self.focusTrove:Add(self.observableState:onChanged(function()
-		local newFitType = self.observableState:get().FitType
-		if fitType ~= newFitType then
-			fitType = newFitType
-			self:_refreshFitType()
-		end
+		self.focusedModelState = modelState
+		self.focusTrove:Add(function()
+			self.focusedModelState = nil
+		end)
+
+		local fitType = self.observableState:get().FitType
+		self:_refreshFitType()
+		self.focusTrove:Add(self.observableState:onChanged(function()
+			local newFitType = self.observableState:get().FitType
+			if fitType ~= newFitType then
+				fitType = newFitType
+				self:_refreshFitType()
+			end
+		end))
+
+		focusReady:complete()
 	end))
+
+	self.focusTrove:Add(function()
+		if not focusReady:isCompleted() then
+			focusReady:complete()
+		end
+	end)
+
+	focusReady:expect()
 end
 
 function AutoCaptureControllerClass.unfocus(self: AutoCaptureController)
