@@ -1,18 +1,19 @@
 local Players = game:GetService("Players") :: Players
-local RunService = game:GetService("RunService") :: RunService
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local PriorityStepper = require(pluginRoot.Utilities.PriorityStepper)
+
 local ReactRoblox = require(pluginRoot.Packages.ReactRoblox)
 local React = require(pluginRoot.Packages.React)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local appRoot = script:FindFirstAncestor("AutoCapture")
-local PriorityStepper = require(appRoot.PriorityStepper)
-
-local FitterWindow = require(script.Parent)
+local RenderPriorities = require(appRoot.RenderPriorities)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local CreateStory = require(uiRoot.Stories.CreateStory)
+
+local FitterWindow = require(script.Parent)
 
 local function useAnimationTrack()
 	local animTrack, setAnimTrack = React.useState(nil :: AnimationTrack?)
@@ -33,7 +34,7 @@ local function useAnimationTrack()
 			local track = trove:Add(animator:LoadAnimation(animation))
 			track:Play(0, nil, 0)
 
-			trove:Add(PriorityStepper.render:connect(PriorityStepper.STEPS.ANIMATOR, function(dt)
+			trove:Add(PriorityStepper.render:connect(RenderPriorities.ANIMATOR, function(dt)
 				animator:StepAnimations(0)
 			end))
 

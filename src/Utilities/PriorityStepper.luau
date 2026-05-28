@@ -80,16 +80,7 @@ function PriorityStepperClass.Destroy(self: PriorityStepper)
 	table.clear(self.callbackInfos)
 end
 
-local STEPS = {
-	TIME_POS = 1,
-	ANIMATOR = 2,
-	TRACK = 3,
-	CAMERA = 4,
-}
-
 return {
-	STEPS = STEPS,
-
 	render = PriorityStepperStatic.new(RunService.PreRender),
 	heartbeat = PriorityStepperStatic.new(RunService.Heartbeat),
 }

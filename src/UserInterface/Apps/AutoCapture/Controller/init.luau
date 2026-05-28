@@ -1,4 +1,5 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local PriorityStepper = require(pluginRoot.Utilities.PriorityStepper)
 
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
@@ -6,7 +7,7 @@ local Signal = require(pluginRoot.Packages.Signal)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local appRoot = script:FindFirstAncestor("AutoCapture")
-local PriorityStepper = require(appRoot.PriorityStepper)
+local RenderPriorities = require(appRoot.RenderPriorities)
 
 local AnimationManager = require(script.AnimationManager)
 local PointCloud = require(script.PointCloud)
@@ -104,11 +105,11 @@ end
 local function cameraStep(callback: (number) -> CFrame)
 	local fallbackCameraCF = workspace.CurrentCamera.CFrame
 
-	local heartbeatCleanup = PriorityStepper.heartbeat:connect(PriorityStepper.STEPS.CAMERA, function()
+	local heartbeatCleanup = PriorityStepper.heartbeat:connect(RenderPriorities.CAMERA, function()
 		workspace.CurrentCamera.CFrame = fallbackCameraCF
 	end)
 
-	local renderCleanup = PriorityStepper.render:connect(PriorityStepper.STEPS.CAMERA, function(dt)
+	local renderCleanup = PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
 		fallbackCameraCF = callback(dt)
 	end)
 

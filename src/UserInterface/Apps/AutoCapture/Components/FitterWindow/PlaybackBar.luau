@@ -1,13 +1,14 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local PriorityStepper = require(pluginRoot.Utilities.PriorityStepper)
+
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
-
 local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local appRoot = script:FindFirstAncestor("AutoCapture")
-local PriorityStepper = require(appRoot.PriorityStepper)
+local RenderPriorities = require(appRoot.RenderPriorities)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
@@ -85,7 +86,7 @@ local function useTrackControl(track: AnimationTrack?)
 		local trove = Trove.new()
 
 		if track and speed > 0 then
-			trove:Add(PriorityStepper.render:connect(PriorityStepper.STEPS.TIME_POS, function(dt)
+			trove:Add(PriorityStepper.render:connect(RenderPriorities.TIME_POS, function(dt)
 				setPosition((track.TimePosition + (dt * track.Speed)) % track.Length)
 			end))
 		end
