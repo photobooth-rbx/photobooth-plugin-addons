@@ -1,12 +1,14 @@
-local RunService = game:GetService("RunService") :: RunService
-
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local AnimationManager = require(script.AnimationManager)
+
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
 local Signal = require(pluginRoot.Packages.Signal)
 local Trove = require(pluginRoot.Packages.Trove)
 
+local appRoot = script:FindFirstAncestor("AutoCapture")
+local PriorityStepper = require(appRoot.PriorityStepper)
+
+local AnimationManager = require(script.AnimationManager)
 local PointCloud = require(script.PointCloud)
 
 local AutoCaptureControllerStatic = {}
@@ -102,17 +104,17 @@ end
 local function cameraStep(callback: (number) -> CFrame)
 	local fallbackCameraCF = workspace.CurrentCamera.CFrame
 
-	local heartbeat = RunService.Heartbeat:Connect(function()
+	local heartbeatCleanup = PriorityStepper.heartbeat:connect(PriorityStepper.STEPS.CAMERA, function()
 		workspace.CurrentCamera.CFrame = fallbackCameraCF
 	end)
 
-	local renderStepped = RunService.RenderStepped:Connect(function(dt)
+	local renderCleanup = PriorityStepper.render:connect(PriorityStepper.STEPS.CAMERA, function(dt)
 		fallbackCameraCF = callback(dt)
 	end)
 
 	return function()
-		heartbeat:Disconnect()
-		renderStepped:Disconnect()
+		heartbeatCleanup()
+		renderCleanup()
 	end
 end
 

@@ -1,6 +1,8 @@
-local RunService = game:GetService("RunService")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Trove = require(pluginRoot.Packages.Trove)
+
+local appRoot = script:FindFirstAncestor("AutoCapture")
+local PriorityStepper = require(appRoot.PriorityStepper)
 
 local AnimationManagerStatic = {}
 
@@ -28,8 +30,9 @@ function AnimationManagerStatic.new(animator: Animator, animation: Animation)
 	self.animator = animator
 	self.animation = animation
 
-	self.trove:Add(RunService.PreRender:Connect(function(dt)
-		self.animator:StepAnimations(dt)
+	self.trove:Add(PriorityStepper.render:connect(PriorityStepper.STEPS.ANIMATOR, function()
+		-- force our dt to zero b/c we manually step the position elsewhere
+		self.animator:StepAnimations(0)
 	end))
 
 	return self
@@ -55,14 +58,14 @@ function AnimationManagerClass.loadTrack(self: AnimationManager, options: Option
 		self.trackTrove:Add(track)
 
 		while track.Length == 0 do
-			RunService.PreRender:Wait()
+			PriorityStepper.render:wait()
 		end
 
 		track:Play(0, nil, 0)
 		track.TimePosition = options.timePosition
 
 		local prevTimePosition = -1
-		self.trackTrove:Add(RunService.PreRender:Connect(function()
+		self.trackTrove:Add(PriorityStepper.render:connect(PriorityStepper.STEPS.TRACK, function(dt)
 			options.onStep(track)
 			if prevTimePosition ~= track.TimePosition then
 				prevTimePosition = track.TimePosition

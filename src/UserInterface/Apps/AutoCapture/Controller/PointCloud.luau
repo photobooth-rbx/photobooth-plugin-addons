@@ -117,7 +117,7 @@ local function tryGetMeshData(meshPart: MeshPart): MeshData?
 	end)
 
 	if not success and err then
-		warn(err)
+		-- warn(err)
 	end
 
 	return meshData

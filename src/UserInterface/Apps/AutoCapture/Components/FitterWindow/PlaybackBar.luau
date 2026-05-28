@@ -1,5 +1,3 @@
-local RunService = game:GetService("RunService") :: RunService
-
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
@@ -8,9 +6,11 @@ local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 local Trove = require(pluginRoot.Packages.Trove)
 
+local appRoot = script:FindFirstAncestor("AutoCapture")
+local PriorityStepper = require(appRoot.PriorityStepper)
+
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
-local Hooks = require(uiRoot.Hooks)
 
 local PLAY_ICON = assert(Lucide.GetAsset("play", 16))
 local PAUSE_ICON = assert(Lucide.GetAsset("pause", 16))
@@ -39,8 +39,30 @@ local function clampValue(value: number, step: number, minValue: number, maxValu
 	return math.clamp(value, minValue, maxValue)
 end
 
+local function useTrackLength(track: AnimationTrack?)
+	local length, setLength = React.useState(track and track.Length or 0)
+
+	React.useEffect(function()
+		local thread = task.spawn(function()
+			if track then
+				while track.Length == 0 do
+					PriorityStepper.render:wait()
+				end
+
+				setLength(track.Length)
+			end
+		end)
+
+		return function()
+			task.cancel(thread)
+		end
+	end, { track })
+
+	return length
+end
+
 local function useTrackControl(track: AnimationTrack?)
-	local length = Hooks.useProperty(track, "Length", 0)
+	local length = useTrackLength(track)
 	local speed, setRawSpeed = React.useState(track and track.Speed or 0)
 	local position, setRawPosition = React.useState(track and track.TimePosition or 0)
 
@@ -63,7 +85,7 @@ local function useTrackControl(track: AnimationTrack?)
 		local trove = Trove.new()
 
 		if track and speed > 0 then
-			trove:Add(RunService.PreRender:Connect(function(dt)
+			trove:Add(PriorityStepper.render:connect(PriorityStepper.STEPS.TIME_POS, function(dt)
 				setPosition((track.TimePosition + (dt * track.Speed)) % track.Length)
 			end))
 		end
