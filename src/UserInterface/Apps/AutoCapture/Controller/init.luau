@@ -105,15 +105,15 @@ end
 
 -- Methods
 
-function AutoCaptureControllerClass._trySetUnsyncedCameraCF(self: AutoCaptureController, cameraCF: CFrame)
-	if not self.observableState:get().IsCameraAngleSynced then
-		workspace.CurrentCamera.CFrame = cameraCF
-	end
+function AutoCaptureControllerClass._setCameraType(self: AutoCaptureController, cameraType: Enum.CameraType)
+	local camera = workspace.CurrentCamera
+	local preCameraCF = camera.CFrame
+	camera.CameraType = cameraType
+	camera.CFrame = preCameraCF
 end
 
 function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 	local focusedModelState = assert(self.focusedModelState)
-	self:_trySetUnsyncedCameraCF(focusedModelState.cameraCF)
 
 	self.refreshTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
 		local camera = workspace.CurrentCamera
@@ -142,7 +142,7 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 				size = Vector2.new(1, 1),
 			})
 
-		camera.CameraType = Enum.CameraType.Custom
+		self:_setCameraType(Enum.CameraType.Custom)
 		camera.CFrame = distortedCF
 		camera.Focus = distortedCF
 
@@ -153,7 +153,6 @@ end
 function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 	local focusedModelState = assert(self.focusedModelState)
 	local pointCloud = PointCloud.new(focusedModelState.instance, self.observableState:get().TryUseMeshVertices)
-	self:_trySetUnsyncedCameraCF(focusedModelState.cameraCF)
 
 	self.refreshTrove:Add(function()
 		pointCloud:Destroy()
@@ -208,7 +207,7 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 				size = Vector2.new(1, 1),
 			})
 
-		camera.CameraType = Enum.CameraType.Custom
+		self:_setCameraType(Enum.CameraType.Custom)
 		camera.CFrame = distorted
 		camera.Focus = distorted
 
@@ -220,7 +219,7 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 	local focusedModelState = assert(self.focusedModelState)
 	self.refreshTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
 		local camera = workspace.CurrentCamera
-		camera.CameraType = Enum.CameraType.Custom
+		self:_setCameraType(Enum.CameraType.Custom)
 		focusedModelState.cameraCF = camera.CFrame
 	end))
 end
@@ -313,6 +312,12 @@ function AutoCaptureControllerClass.focusAsync(self: AutoCaptureController, mode
 	local cameraType = workspace.CurrentCamera.CameraType
 	modelState.instance.Parent = workspace.CurrentCamera
 
+	if not self.observableState:get().IsCameraAngleSynced then
+		workspace.CurrentCamera.CFrame = modelState.cameraCF
+	else
+		modelState.cameraCF = workspace.CurrentCamera.CFrame
+	end
+
 	self.focusTrove:Add(PriorityStepper.heartbeat:connect(RenderPriorities.CAMERA, function()
 		local camera = workspace.CurrentCamera
 		camera.CFrame = modelState.cameraCF
@@ -320,7 +325,7 @@ function AutoCaptureControllerClass.focusAsync(self: AutoCaptureController, mode
 
 	self.focusTrove:Add(function()
 		local camera = workspace.CurrentCamera
-		camera.CameraType = cameraType
+		self:_setCameraType(cameraType)
 		camera.CFrame = modelState.cameraCF
 		modelState.instance.Parent = nil
 
