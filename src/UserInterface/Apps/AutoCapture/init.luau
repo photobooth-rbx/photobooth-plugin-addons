@@ -175,9 +175,12 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							local pvInstanceCopy = element.instance:Clone()
 							local model = Instance.new("Model")
 							pvInstanceCopy.Parent = model
+
+							local aabbCenterCF, _aabbSize = model:GetBoundingBox()
 							model.Name = pvInstanceCopy.Name
-							model.WorldPivot = model:GetPivot() * pvInstanceCopy:GetPivot().Rotation:Inverse()
+							model.WorldPivot = aabbCenterCF * pvInstanceCopy:GetPivot().Rotation:Inverse()
 							model:PivotTo(CFrame.identity)
+
 							modelStateRef.current[element] = {
 								instance = model,
 								cameraCF = CFrame.identity,
