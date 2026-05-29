@@ -103,45 +103,26 @@ local function distort(camera: Camera, distortion: Distortion)
 	return CFrame.new(0, 0, 0, w / m, 0, 0, 0, h / m, 0, dx / m, dy / m, dz / m)
 end
 
-local function cameraStep(callback: (number) -> CFrame)
-	local fallbackCameraCF = workspace.CurrentCamera.CFrame
+-- Methods
 
-	local heartbeatCleanup = PriorityStepper.heartbeat:connect(RenderPriorities.CAMERA, function()
-		workspace.CurrentCamera.CFrame = fallbackCameraCF
-	end)
-
-	local renderCleanup = PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
-		fallbackCameraCF = callback(dt)
-	end)
-
-	return function()
-		heartbeatCleanup()
-		renderCleanup()
+function AutoCaptureControllerClass._trySetUnsyncedCameraCF(self: AutoCaptureController, cameraCF: CFrame)
+	if not self.observableState:get().IsCameraAngleSynced then
+		workspace.CurrentCamera.CFrame = cameraCF
 	end
 end
 
--- Methods
-
 function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
-	local firstSet = true
 	local focusedModelState = assert(self.focusedModelState)
+	self:_trySetUnsyncedCameraCF(focusedModelState.cameraCF)
 
-	self.refreshTrove:Add(cameraStep(function()
+	self.refreshTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
 		local camera = workspace.CurrentCamera
+		local viewportSize = camera.ViewportSize
 		local cameraCF = camera.CFrame
+		local rotation = cameraCF.Rotation
 
 		local state = self.observableState:get()
 		local rectCenter = self.paddedRect.Min + (self.paddedRect.Max - self.paddedRect.Min) / 2
-
-		local viewportSize = camera.ViewportSize
-
-		local rotation = cameraCF.Rotation
-		if firstSet then
-			if not self.observableState:get().IsCameraAngleSynced then
-				rotation = focusedModelState.cameraCF.Rotation
-			end
-			firstSet = false
-		end
 
 		local aspect = self.paddedRect.Width / self.paddedRect.Height
 		local scaleY = self.paddedRect.Height / viewportSize.Y
@@ -166,20 +147,21 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 		camera.Focus = distortedCF
 
 		focusedModelState.cameraCF = cameraCF
-
-		return cameraCF
 	end))
 end
 
 function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
-	local firstSet = true
-
 	local focusedModelState = assert(self.focusedModelState)
 	local pointCloud = PointCloud.new(focusedModelState.instance, self.observableState:get().TryUseMeshVertices)
+	self:_trySetUnsyncedCameraCF(focusedModelState.cameraCF)
 
 	self.refreshTrove:Add(function()
 		pointCloud:Destroy()
 	end)
+
+	self.refreshTrove:Add(self.forcePointCloudRefresh:Connect(function()
+		pointCloud:recalculateVertices()
+	end))
 
 	self.refreshTrove:Add(self.observableState:onChanged(function()
 		local newTryUseMeshVertices = self.observableState:get().TryUseMeshVertices
@@ -189,28 +171,15 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		end
 	end))
 
-	self.refreshTrove:Add(self.forcePointCloudRefresh:Connect(function()
-		pointCloud:recalculateVertices()
-	end))
-
-	self.refreshTrove:Add(cameraStep(function()
+	self.refreshTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
 		local camera = workspace.CurrentCamera
+		local viewportSize = camera.ViewportSize
 		local cameraCF = camera.CFrame
+		local rotation = cameraCF.Rotation
+		local rotationInv = rotation:Inverse()
 
 		local state = self.observableState:get()
-
-		local viewportSize = camera.ViewportSize
 		local rectCenter = self.paddedRect.Min + (self.paddedRect.Max - self.paddedRect.Min) / 2
-
-		local rotation = cameraCF.Rotation
-		if firstSet then
-			if not self.observableState:get().IsCameraAngleSynced then
-				rotation = self.focusedModelState.cameraCF.Rotation
-			end
-			firstSet = false
-		end
-
-		local rotationInv = rotation:Inverse()
 
 		local tanYFov2 = math.tan(math.rad(camera.FieldOfView / 2))
 		local tanYFov2Scaled = tanYFov2 * (self.paddedRect.Height / viewportSize.Y)
@@ -243,17 +212,17 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		camera.CFrame = distorted
 		camera.Focus = distorted
 
-		self.focusedModelState.cameraCF = cameraCF
-
-		return cameraCF
+		focusedModelState.cameraCF = cameraCF
 	end))
 end
 
 function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 	local focusedModelState = assert(self.focusedModelState)
-	local camera = workspace.CurrentCamera
-	camera.CameraType = Enum.CameraType.Custom
-	focusedModelState.cameraCF = CFrame.identity
+	self.refreshTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
+		local camera = workspace.CurrentCamera
+		camera.CameraType = Enum.CameraType.Custom
+		focusedModelState.cameraCF = camera.CFrame
+	end))
 end
 
 function AutoCaptureControllerClass._refreshFitType(self: AutoCaptureController)
@@ -339,15 +308,27 @@ end
 function AutoCaptureControllerClass.focusAsync(self: AutoCaptureController, modelState: ModelState)
 	self:unfocus()
 
+	local focusReady = Future.new()
+
 	local cameraType = workspace.CurrentCamera.CameraType
 	modelState.instance.Parent = workspace.CurrentCamera
 
+	self.focusTrove:Add(PriorityStepper.heartbeat:connect(RenderPriorities.CAMERA, function()
+		local camera = workspace.CurrentCamera
+		camera.CFrame = modelState.cameraCF
+	end))
+
 	self.focusTrove:Add(function()
-		workspace.CurrentCamera.CameraType = cameraType
+		local camera = workspace.CurrentCamera
+		camera.CameraType = cameraType
+		camera.CFrame = modelState.cameraCF
 		modelState.instance.Parent = nil
+
+		if not focusReady:isCompleted() then
+			focusReady:complete()
+		end
 	end)
 
-	local focusReady = Future.new()
 	self.focusTrove:Add(task.spawn(function()
 		self:_loadAnimationAsync(modelState)
 
@@ -369,18 +350,12 @@ function AutoCaptureControllerClass.focusAsync(self: AutoCaptureController, mode
 		focusReady:complete()
 	end))
 
-	self.focusTrove:Add(function()
-		if not focusReady:isCompleted() then
-			focusReady:complete()
-		end
-	end)
-
 	focusReady:expect()
 end
 
 function AutoCaptureControllerClass.unfocus(self: AutoCaptureController)
-	self.focusTrove:Clean()
 	self.refreshTrove:Clean()
+	self.focusTrove:Clean()
 end
 
 function AutoCaptureControllerClass.capture(self: AutoCaptureController)

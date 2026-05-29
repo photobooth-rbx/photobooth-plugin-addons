@@ -1,4 +1,4 @@
-local SelectionService = game:GetService("Selection") :: Selection
+local SelectionService = game:GetService("Selection")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local React = require(pluginRoot.Packages.React)

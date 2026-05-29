@@ -1,4 +1,4 @@
-local RunService = game:GetService("RunService") :: RunService
+local RunService = game:GetService("RunService")
 
 local Timeout = {}
 

@@ -1,4 +1,4 @@
-local AssetService = game:GetService("AssetService") :: AssetService
+local AssetService = game:GetService("AssetService")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Trove = require(pluginRoot.Packages.Trove)

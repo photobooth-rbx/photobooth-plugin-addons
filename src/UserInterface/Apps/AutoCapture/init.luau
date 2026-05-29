@@ -1,5 +1,6 @@
-local CoreGui = game:GetService("CoreGui") :: CoreGui
-local SelectionService = game:GetService("Selection") :: Selection
+local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
+local SelectionService = game:GetService("Selection")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
@@ -105,7 +106,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 									local result = controller:capture()
 									if result then
 										result.Name = focusedModelState.instance.Name
-										result.Parent = game:GetService("StarterGui")
+										result.Parent = StarterGui
 
 										plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
 										SelectionService:Set({ result })
@@ -142,7 +143,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 								end
 
 								folder.Name = "AutoCaptures"
-								folder.Parent = game:GetService("StarterGui")
+								folder.Parent = StarterGui
 
 								plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
 								SelectionService:Set({ folder })

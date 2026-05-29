@@ -1,4 +1,4 @@
-local StudioService = game:GetService("StudioService") :: StudioService
+local StudioService = game:GetService("StudioService")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)

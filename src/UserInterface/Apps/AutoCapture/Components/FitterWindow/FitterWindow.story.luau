@@ -1,4 +1,4 @@
-local Players = game:GetService("Players") :: Players
+local Players = game:GetService("Players")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local PriorityStepper = require(pluginRoot.Utilities.PriorityStepper)
