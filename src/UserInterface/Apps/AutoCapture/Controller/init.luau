@@ -50,6 +50,7 @@ function AutoCaptureControllerStatic.new(observableState: ObservableState)
 	self.paddedRect = Rect.new(0, 0, 0, 0)
 	self.observableState = observableState
 
+	self.meshDataCache = {}
 	self.forcePointCloudRefresh = Signal.new()
 
 	self.focusTrove = Trove.new()
@@ -112,6 +113,25 @@ function AutoCaptureControllerClass._setCameraType(self: AutoCaptureController, 
 	camera.CFrame = preCameraCF
 end
 
+function AutoCaptureControllerClass._createPointCloud(self: AutoCaptureController, model: Model)
+	local tryUseMeshVertices = self.observableState:get().TryUseMeshVertices
+	local pointCloud = PointCloud.new(model, tryUseMeshVertices, self.meshDataCache)
+
+	pointCloud.trove:Add(self.forcePointCloudRefresh:Connect(function()
+		pointCloud:recalculateVertices()
+	end))
+
+	pointCloud.trove:Add(self.observableState:onChanged(function()
+		local newTryUseMeshVertices = self.observableState:get().TryUseMeshVertices
+		if pointCloud.tryUseMeshVertices ~= newTryUseMeshVertices then
+			pointCloud.tryUseMeshVertices = newTryUseMeshVertices
+			pointCloud:recalculateVertices()
+		end
+	end))
+
+	return pointCloud
+end
+
 function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 	local focusedModelState = assert(self.focusedModelState)
 
@@ -152,23 +172,11 @@ end
 
 function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 	local focusedModelState = assert(self.focusedModelState)
-	local pointCloud = PointCloud.new(focusedModelState.instance, self.observableState:get().TryUseMeshVertices)
+	local pointCloud = self:_createPointCloud(focusedModelState.instance)
 
 	self.refreshTrove:Add(function()
 		pointCloud:Destroy()
 	end)
-
-	self.refreshTrove:Add(self.forcePointCloudRefresh:Connect(function()
-		pointCloud:recalculateVertices()
-	end))
-
-	self.refreshTrove:Add(self.observableState:onChanged(function()
-		local newTryUseMeshVertices = self.observableState:get().TryUseMeshVertices
-		if pointCloud.tryUseMeshVertices ~= newTryUseMeshVertices then
-			pointCloud.tryUseMeshVertices = newTryUseMeshVertices
-			pointCloud:recalculateVertices()
-		end
-	end))
 
 	self.refreshTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function(dt)
 		local camera = workspace.CurrentCamera
@@ -250,6 +258,9 @@ function AutoCaptureControllerClass._loadAnimationAsync(self: AutoCaptureControl
 
 	local animationReady = Future.new()
 	local animationManager = AnimationManager.new(animator, animation)
+	self.focusTrove:Add(function()
+		animationManager:Destroy()
+	end)
 
 	local function refreshTrack()
 		animationManager:loadTrack({
@@ -399,6 +410,7 @@ export type AutoCaptureController = typeof(setmetatable(
 		focusedModelState: ModelState?,
 		observableState: ObservableState,
 
+		meshDataCache: PointCloud.MeshDataCache,
 		forcePointCloudRefresh: Signal.Signal<()>,
 
 		focusTrove: Trove.Trove,

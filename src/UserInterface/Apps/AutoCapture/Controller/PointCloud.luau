@@ -13,34 +13,40 @@ local PointCloudClass = {}
 PointCloudClass.__index = PointCloudClass
 PointCloudClass.ClassName = "PointCloud"
 
-type MeshData = {
-	localVertices: { Vector3 },
-	naturalSize: Vector3,
-}
-
 type Watcher = {
 	part: BasePart,
 	getPointCloud: () -> { Vector3 },
 	cleanup: () -> (),
 }
 
+export type MeshData = {
+	localVertices: { Vector3 },
+	naturalSize: Vector3,
+}
+
+export type MeshDataCache = { [string]: {
+	data: MeshData?,
+} }
+
 export type PointCloud = typeof(setmetatable(
 	{} :: {
 		trove: Trove.Trove,
 		subject: Instance,
 		tryUseMeshVertices: boolean?,
+		meshDataCache: MeshDataCache,
 		watchers: { [BasePart]: Watcher },
 		vertices: { Vector3 },
 	},
 	PointCloudClass
 ))
 
-function PointCloudStatic.new(subject: Instance, tryUseMeshVertices: boolean?)
+function PointCloudStatic.new(subject: Instance, tryUseMeshVertices: boolean?, meshDataCache: MeshDataCache)
 	local self = setmetatable({}, PointCloudClass) :: PointCloud
 
 	self.trove = Trove.new()
 	self.subject = subject
 	self.tryUseMeshVertices = tryUseMeshVertices
+	self.meshDataCache = meshDataCache
 	self.watchers = {}
 	self.vertices = {}
 
@@ -98,29 +104,38 @@ local function getPartPointCloud(part: BasePart)
 	return getPointCloud(partCF, partSize / 2, indices)
 end
 
-local function tryGetMeshData(meshPart: MeshPart): MeshData?
-	local meshData: MeshData?
-	local success, err: string? = pcall(function()
-		local editMesh = AssetService:CreateEditableMeshAsync(meshPart.MeshContent)
+function PointCloudClass._tryGetMeshData(self: PointCloud, meshPart: MeshPart)
+	local meshContent = meshPart.MeshContent
+	local cacheKey = if meshContent.SourceType == Enum.ContentSourceType.Uri then meshContent.Uri else nil
 
-		local vertices = {}
-		for _, vertexId in editMesh:GetVertices() do
-			table.insert(vertices, editMesh:GetPosition(vertexId))
+	if cacheKey and not self.meshDataCache[cacheKey] then
+		local meshData: MeshData?
+		local success, _err: string? = pcall(function()
+			local editMesh = AssetService:CreateEditableMeshAsync(meshPart.MeshContent)
+
+			local vertices = {}
+			for _, vertexId in editMesh:GetVertices() do
+				table.insert(vertices, editMesh:GetPosition(vertexId))
+			end
+
+			local newMeshData: MeshData = {
+				localVertices = vertices,
+				naturalSize = editMesh:GetSize(),
+			}
+
+			editMesh:Destroy()
+			meshData = newMeshData
+		end)
+
+		if not success then
+			self.meshDataCache[cacheKey] = { data = nil }
+		else
+			self.meshDataCache[cacheKey] = { data = meshData }
 		end
-
-		meshData = {
-			localVertices = vertices,
-			naturalSize = editMesh:GetSize(),
-		}
-
-		editMesh:Destroy()
-	end)
-
-	if not success and err then
-		-- warn(err)
 	end
 
-	return meshData
+	local cached = if cacheKey then self.meshDataCache[cacheKey] else nil
+	return if cached then cached.data else nil
 end
 
 function PointCloudClass._watchPart(self: PointCloud, part: BasePart): Watcher
@@ -137,7 +152,7 @@ function PointCloudClass._watchPart(self: PointCloud, part: BasePart): Watcher
 
 	if part:IsA("MeshPart") then
 		local thread = task.spawn(function()
-			local data = tryGetMeshData(part)
+			local data = self:_tryGetMeshData(part)
 			if data then
 				meshData = data
 				self:recalculateVertices()
