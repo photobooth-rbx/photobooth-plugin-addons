@@ -178,8 +178,13 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 					end,
 					OnListElementAdded = function(element)
 						if not modelsRef.current[element] then
+							local archivable = element.instance.Archivable
+							element.instance.Archivable = true
 							local pvInstanceCopy = element.instance:Clone()
+							element.instance.Archivable = archivable
+							pvInstanceCopy.Archivable = archivable
 							local model = Instance.new("Model")
+							model.Archivable = false
 							pvInstanceCopy.Parent = model
 
 							local aabbCenterCF, _aabbSize = model:GetBoundingBox()
