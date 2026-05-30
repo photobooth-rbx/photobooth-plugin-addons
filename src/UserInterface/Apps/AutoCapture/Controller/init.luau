@@ -57,7 +57,7 @@ function AutoCaptureControllerStatic.new(observableState: ObservableState)
 	self.paddedRect = Rect.new(0, 0, 0, 0)
 	self.observableState = observableState
 
-	self.sharedOrbit = { yaw = 0, pitch = 0, zoom = 1 }
+	self.sharedOrbit = { yaw = math.pi, pitch = 0, zoom = 1 }
 	self.isInputFrozen = true
 
 	self.focusedModel = nil
@@ -129,21 +129,21 @@ end
 
 function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureController)
 	local rotating = false
-	local cleanup = Trove.new()
+	local cleanupTrove = Trove.new()
 
-	cleanup:Add(UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	cleanupTrove:Add(UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton2 then
 			rotating = true
 		end
 	end))
 
-	cleanup:Add(UserInputService.InputEnded:Connect(function(input)
+	cleanupTrove:Add(UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton2 then
 			rotating = false
 		end
 	end))
 
-	cleanup:Add(UserInputService.InputChanged:Connect(function(input, gameProcessed)
+	cleanupTrove:Add(UserInputService.InputChanged:Connect(function(input, gameProcessed)
 		if self.isInputFrozen then
 			return
 		end
@@ -159,8 +159,27 @@ function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureControlle
 		end
 	end))
 
+	local cameraTrove = Trove.new()
+
+	local function cameraAdded(camera: Camera)
+		cameraTrove:Clean()
+		cameraTrove:Add(camera:GetPropertyChangedSignal("CFrame"):Connect(function()
+			local orbit = self:_getActiveOrbit()
+			local rx, ry, _rz = camera.CFrame:ToEulerAnglesYXZ()
+			orbit.pitch = rx
+			orbit.yaw = ry
+		end))
+	end
+
+	cameraAdded(workspace.CurrentCamera)
+	local currentCameraChanged = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		cameraAdded(workspace.CurrentCamera)
+	end)
+
 	return function()
-		cleanup:Destroy()
+		currentCameraChanged:Disconnect()
+		cameraTrove:Destroy()
+		cleanupTrove:Destroy()
 	end
 end
 
