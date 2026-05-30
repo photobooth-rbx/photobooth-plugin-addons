@@ -59,7 +59,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 
 	local function App()
 		local dockRef = React.useRef(dock)
-		local modelStateRef = React.useRef({} :: { [Widget.ListElement]: Controller.ModelState })
+		local modelsRef = React.useRef({} :: { [Widget.ListElement]: Model })
 
 		local observedState = observableState:use()
 		local captureRect, setCaptureRect = React.useState(Rect.new(0, 0, 0, 0))
@@ -80,9 +80,10 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 			if not isEnabled then
 				controller:unfocus()
 
-				for element, modelState in modelStateRef.current do
-					modelState.instance:Destroy()
-					modelStateRef.current[element] = nil
+				for element, _model in modelsRef.current do
+					controller:unloadModel(modelsRef.current[element])
+					modelsRef.current[element]:Destroy()
+					modelsRef.current[element] = nil
 				end
 			end
 		end, { isEnabled })
@@ -101,13 +102,11 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
 
 							hideWorkspace(function()
-								local focusedModelState = controller:getFocusedModelState()
-								if focusedModelState then
+								local focusedModel = controller:getFocusedModel()
+								if focusedModel then
 									local result = controller:capture()
 									if result then
-										result.Name = focusedModelState.instance.Name
 										result.Parent = StarterGui
-
 										plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
 										SelectionService:Set({ result })
 									end
@@ -130,14 +129,13 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 
 							hideWorkspace(function()
 								local folder = Instance.new("Folder")
-								local prevFocusedModelState = controller:getFocusedModelState()
-								for _, modelState in modelStateRef.current do
-									controller:focusAsync(modelState)
+								local prevFocusedModel = controller:getFocusedModel()
+								for _, model in modelsRef.current do
+									controller:focus(true, model)
 									Photobooth.yieldUntilNextFrame()
 
 									local result = controller:capture()
 									if result then
-										result.Name = modelState.instance.Name
 										result.Parent = folder
 									end
 								end
@@ -148,8 +146,8 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 								plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
 								SelectionService:Set({ folder })
 
-								if prevFocusedModelState then
-									controller:focusAsync(prevFocusedModelState)
+								if prevFocusedModel then
+									controller:focus(false, prevFocusedModel)
 								else
 									controller:unfocus()
 								end
@@ -159,42 +157,38 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 						if not success then
 							warn(err)
 						end
+
 						setDisabled(false)
 					end,
 
 					OnListElementSelected = function(element)
 						controller:unfocus()
 
-						local modelState = element and modelStateRef.current[element]
-						if modelState then
-							controller:focusAsync(modelState)
+						local model = element and modelsRef.current[element]
+						if model then
+							controller:focus(false, model)
 						end
 					end,
 					OnListElementAdded = function(element)
-						if not modelStateRef.current[element] then
+						if not modelsRef.current[element] then
 							local pvInstanceCopy = element.instance:Clone()
 							local model = Instance.new("Model")
 							pvInstanceCopy.Parent = model
 
 							local aabbCenterCF, _aabbSize = model:GetBoundingBox()
-							model.Name = pvInstanceCopy.Name
+							model.Name = "AutoCaptureModel"
 							model.WorldPivot = aabbCenterCF * pvInstanceCopy:GetPivot().Rotation:Inverse()
 							model:PivotTo(CFrame.identity)
 
-							modelStateRef.current[element] = {
-								instance = model,
-								cameraCF = CFrame.identity,
-								animation = {
-									content = Content.none,
-									timePosition = 0,
-								},
-							}
+							modelsRef.current[element] = model
+							controller:loadModel(modelsRef.current[element], pvInstanceCopy.Name)
 						end
 					end,
 					OnListElementRemoved = function(element)
-						if modelStateRef.current[element] then
-							modelStateRef.current[element].instance:Destroy()
-							modelStateRef.current[element] = nil
+						if modelsRef.current[element] then
+							controller:unloadModel(modelsRef.current[element])
+							modelsRef.current[element]:Destroy()
+							modelsRef.current[element] = nil
 						end
 					end,
 
