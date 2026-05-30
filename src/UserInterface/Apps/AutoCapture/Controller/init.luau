@@ -5,7 +5,6 @@ local PriorityStepper = require(pluginRoot.Utilities.PriorityStepper)
 
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
-local Signal = require(pluginRoot.Packages.Signal)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local appRoot = script:FindFirstAncestor("AutoCapture")
@@ -14,10 +13,24 @@ local RenderPriorities = require(appRoot.RenderPriorities)
 local AnimationManager = require(script.AnimationManager)
 local PointCloud = require(script.PointCloud)
 
-local ORBIT_SENSITIVITY = 0.005
-local ZOOM_SENSITIVITY = 0.08
 local PITCH_LIMIT = math.rad(89)
-local MIN_ZOOM = 0
+
+local ORBIT_SENSITIVITY = 0.005
+
+local FREE_LOOK_SENSITIVITY = 0.005
+local FREE_MOVE_SPEED = 16
+local FREE_MOVE_ACCELERATION = 1
+local FREE_MOVE_SPEED_SHIFT = 8
+local FREE_MOVE_SPEED_MAX = 1000
+
+local FREE_MOVE_KEYS = {
+	[Enum.KeyCode.D] = Vector3.xAxis,
+	[Enum.KeyCode.A] = -Vector3.xAxis,
+	[Enum.KeyCode.E] = Vector3.yAxis,
+	[Enum.KeyCode.Q] = -Vector3.yAxis,
+	[Enum.KeyCode.S] = Vector3.zAxis,
+	[Enum.KeyCode.W] = -Vector3.zAxis,
+}
 
 local AutoCaptureControllerStatic = {}
 local globalTicket = 0
@@ -57,14 +70,18 @@ function AutoCaptureControllerStatic.new(observableState: ObservableState)
 	self.paddedRect = Rect.new(0, 0, 0, 0)
 	self.observableState = observableState
 
-	self.sharedOrbit = { yaw = math.pi, pitch = 0, zoom = 1 }
-	self.isInputFrozen = true
+	local yaw, pitch = math.pi, 0
+	self.sharedCameraState = {
+		yaw = yaw,
+		pitch = pitch,
+		prevCF = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0),
+	}
 
 	self.focusedModel = nil
 	self.stateByModel = {}
 
+	self.isInputFrozen = true
 	self.meshDataCache = {}
-	self.forcePointCloudRefresh = Signal.new()
 
 	self.focusTrove = Trove.new()
 
@@ -118,13 +135,13 @@ end
 
 -- Methods
 
-function AutoCaptureControllerClass._getActiveOrbit(self: AutoCaptureController)
+function AutoCaptureControllerClass._getActiveCameraState(self: AutoCaptureController)
 	local focusedModel = self.focusedModel
 	local focusedModelState = focusedModel and self.stateByModel[focusedModel]
 	if focusedModelState and not self.observableState:get().IsCameraAngleSynced then
-		return focusedModelState.orbit
+		return focusedModelState.cameraState
 	end
-	return self.sharedOrbit
+	return self.sharedCameraState
 end
 
 function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureController)
@@ -148,14 +165,13 @@ function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureControlle
 			return
 		end
 
-		local orbit = self:_getActiveOrbit()
+		local cameraState = self:_getActiveCameraState()
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			if rotating then
-				orbit.yaw -= input.Delta.X * ORBIT_SENSITIVITY
-				orbit.pitch = math.clamp(orbit.pitch - input.Delta.Y * ORBIT_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
+				cameraState.yaw -= input.Delta.X * ORBIT_SENSITIVITY
+				cameraState.pitch =
+					math.clamp(cameraState.pitch - input.Delta.Y * ORBIT_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
 			end
-		elseif not gameProcessed and input.UserInputType == Enum.UserInputType.MouseWheel then
-			orbit.zoom = math.max(MIN_ZOOM, orbit.zoom - input.Position.Z * ZOOM_SENSITIVITY)
 		end
 	end))
 
@@ -164,10 +180,10 @@ function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureControlle
 	local function cameraAdded(camera: Camera)
 		cameraTrove:Clean()
 		cameraTrove:Add(camera:GetPropertyChangedSignal("CFrame"):Connect(function()
-			local orbit = self:_getActiveOrbit()
+			local cameraState = self:_getActiveCameraState()
 			local rx, ry, _rz = camera.CFrame:ToEulerAnglesYXZ()
-			orbit.pitch = rx
-			orbit.yaw = ry
+			cameraState.pitch = rx
+			cameraState.yaw = ry
 		end))
 	end
 
@@ -187,10 +203,6 @@ function AutoCaptureControllerClass._createPointCloud(self: AutoCaptureControlle
 	local tryUseMeshVertices = self.observableState:get().TryUseMeshVertices
 	local pointCloud = PointCloud.new(model, tryUseMeshVertices, self.meshDataCache)
 
-	pointCloud.trove:Add(self.forcePointCloudRefresh:Connect(function()
-		pointCloud:recalculateVertices()
-	end))
-
 	pointCloud.trove:Add(self.observableState:onChanged(function()
 		local newTryUseMeshVertices = self.observableState:get().TryUseMeshVertices
 		if pointCloud.tryUseMeshVertices ~= newTryUseMeshVertices then
@@ -209,11 +221,11 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 	local cleanupTrove = Trove.new()
 
 	local function render()
-		local orbit = self:_getActiveOrbit()
+		local cameraState = self:_getActiveCameraState()
 
 		local camera = workspace.CurrentCamera
 		local viewportSize = camera.ViewportSize
-		local rotation = CFrame.fromEulerAnglesYXZ(orbit.pitch, orbit.yaw, 0)
+		local rotation = CFrame.fromEulerAnglesYXZ(cameraState.pitch, cameraState.yaw, 0)
 
 		local state = self.observableState:get()
 		local rectCenter = self.paddedRect.Min + (self.paddedRect.Max - self.paddedRect.Min) / 2
@@ -226,7 +238,7 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 		local _aabbCenter, aabbSize = focusedModel:GetBoundingBox()
 		local radius = aabbSize.Magnitude / 2
 
-		local distance = (radius / sinFov2) * state.DistanceScale * orbit.zoom
+		local distance = (radius / sinFov2) * state.DistanceScale
 		local cameraCF = rotation * CFrame.new(0, 0, distance)
 
 		local distortedCF = cameraCF
@@ -240,8 +252,8 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 		camera.CFrame = distortedCF
 		camera.Focus = distortedCF
 
-		focusedModelState.orbit = table.clone(orbit)
-		focusedModelState.renderCF = distortedCF
+		cameraState.prevCF = distortedCF
+		focusedModelState.cameraState = table.clone(cameraState)
 	end
 
 	cleanupTrove:Add(self:_listenOrbitInput())
@@ -269,11 +281,11 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 	end))
 
 	local function render()
-		local orbit = self:_getActiveOrbit()
+		local cameraState = self:_getActiveCameraState()
 
 		local camera = workspace.CurrentCamera
 		local viewportSize = camera.ViewportSize
-		local rotation = CFrame.fromEulerAnglesYXZ(orbit.pitch, orbit.yaw, 0)
+		local rotation = CFrame.fromEulerAnglesYXZ(cameraState.pitch, cameraState.yaw, 0)
 		local rotationInv = rotation:Inverse()
 
 		local state = self.observableState:get()
@@ -296,7 +308,6 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		local vMax, vMin = viewProjectionEdgeHits(cloud, "Y", furthest, tanYFov2Scaled)
 		local distance = math.max(((hMax - hMin) / 2) / tanXFov2Scaled, ((vMax - vMin) / 2) / tanYFov2Scaled)
 			* state.DistanceScale
-			* orbit.zoom
 
 		local cameraCF = rotation * CFrame.new((hMax + hMin) / 2, (vMax + vMin) / 2, furthest + distance)
 
@@ -311,8 +322,8 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		camera.CFrame = distortedCF
 		camera.Focus = distortedCF
 
-		focusedModelState.orbit = table.clone(orbit)
-		focusedModelState.renderCF = distortedCF
+		cameraState.prevCF = distortedCF
+		focusedModelState.cameraState = table.clone(cameraState)
 	end
 
 	cleanupTrove:Add(self:_listenOrbitInput())
@@ -329,23 +340,72 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 	local focusedModelState = assert(self.stateByModel[focusedModel])
 
 	local cleanupTrove = Trove.new()
-	cleanupTrove:Add(task.spawn(function()
-		local camera = workspace.CurrentCamera
+
+	-- Drive the camera ourselves on top of CameraType.Scriptable rather than
+	-- handing control to Studio's edit-mode camera (which snaps on first input).
+	-- Hold the right mouse button to look + fly: WASD move, E/Q up/down, Shift to slow speed
+	local startCF = focusedModelState.cameraState.prevCF
+	local position = startCF.Position
+	local pitch, yaw = startCF:ToEulerAnglesYXZ()
+	local moveSpeed = FREE_MOVE_SPEED
+
+	local function isShiftDown()
+		return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+	end
+
+	cleanupTrove:Add(UserInputService.InputChanged:Connect(function(input, gameProcessed)
 		if self.isInputFrozen then
-			camera.CameraType = Enum.CameraType.Scriptable
-		else
-			camera.CameraType = Enum.CameraType.Fixed
+			return
 		end
 
-		camera.CFrame = focusedModelState.renderCF
-		camera.Focus = camera.CFrame
-
-		cleanupTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function()
-			local currentCamera = workspace.CurrentCamera
-			currentCamera.CameraType = if self.isInputFrozen then Enum.CameraType.Scriptable else Enum.CameraType.Fixed
-			focusedModelState.renderCF = currentCamera.CFrame
-		end))
+		if input.UserInputType == Enum.UserInputType.MouseMovement then
+			yaw -= input.Delta.X * FREE_LOOK_SENSITIVITY
+			pitch = math.clamp(pitch - input.Delta.Y * FREE_LOOK_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
+		end
 	end))
+
+	local function render(dt: number)
+		local cameraState = self:_getActiveCameraState()
+
+		local camera = workspace.CurrentCamera
+		camera.CameraType = Enum.CameraType.Scriptable
+
+		local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
+
+		if not self.isInputFrozen then
+			if isShiftDown() then
+				moveSpeed = FREE_MOVE_SPEED_SHIFT
+			else
+				moveSpeed = math.max(moveSpeed, FREE_MOVE_SPEED) + dt * FREE_MOVE_ACCELERATION
+				moveSpeed = math.clamp(moveSpeed, FREE_MOVE_SPEED_SHIFT, FREE_MOVE_SPEED_MAX)
+			end
+
+			local direction = Vector3.zero
+			for keyCode, vec in FREE_MOVE_KEYS do
+				if UserInputService:IsKeyDown(keyCode) then
+					direction = direction + rotation:VectorToWorldSpace(vec)
+				end
+			end
+
+			local directionMagnitude = direction.Magnitude
+			if directionMagnitude > 0 then
+				local directionUnit = direction / directionMagnitude
+				position = position + directionUnit * moveSpeed * dt
+			end
+		end
+
+		local cameraCF = CFrame.new(position) * rotation
+		camera.CFrame = cameraCF
+		camera.Focus = cameraCF
+
+		cameraState.pitch = pitch
+		cameraState.yaw = yaw
+		cameraState.prevCF = cameraCF
+		focusedModelState.cameraState = table.clone(cameraState)
+	end
+
+	cleanupTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, render))
+	render(0)
 
 	return function()
 		cleanupTrove:Destroy()
@@ -395,16 +455,14 @@ function AutoCaptureControllerClass.getFocusedModel(self: AutoCaptureController)
 end
 
 function AutoCaptureControllerClass.loadModel(self: AutoCaptureController, model: Model)
-	local orbit = table.clone(self.sharedOrbit)
-	local renderCF = CFrame.fromEulerAnglesYXZ(orbit.pitch, orbit.yaw, 0) * CFrame.new(0, 0, orbit.zoom)
+	local cameraState = table.clone(self.sharedCameraState)
 	local animationManager = AnimationManager.new(model)
 
 	globalTicket = globalTicket + 1
 
 	self.stateByModel[model] = {
 		ticket = globalTicket,
-		orbit = orbit,
-		renderCF = renderCF,
+		cameraState = cameraState,
 		animationManager = animationManager,
 	}
 end
@@ -440,7 +498,7 @@ function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFroz
 	end))
 
 	if self.observableState:get().IsCameraAngleSynced then
-		focusedModelState.orbit = table.clone(self.sharedOrbit)
+		focusedModelState.cameraState = table.clone(self.sharedCameraState)
 	end
 
 	local stopWatching = self:_watchFitType()
@@ -489,16 +547,15 @@ end
 
 --
 
-type Orbit = {
+type CameraState = {
 	yaw: number,
 	pitch: number,
-	zoom: number,
+	prevCF: CFrame,
 }
 
 type ModelState = {
 	ticket: number,
-	orbit: Orbit,
-	renderCF: CFrame,
+	cameraState: CameraState,
 	animationManager: AnimationManager.AnimationManager,
 }
 
@@ -511,14 +568,13 @@ export type AutoCaptureController = typeof(setmetatable(
 		paddedRect: Rect,
 		observableState: ObservableState,
 
-		sharedOrbit: Orbit,
-		isInputFrozen: boolean,
+		sharedCameraState: CameraState,
 
 		focusedModel: Model?,
 		stateByModel: { [Model]: ModelState },
 
+		isInputFrozen: boolean,
 		meshDataCache: PointCloud.MeshDataCache,
-		forcePointCloudRefresh: Signal.Signal<()>,
 
 		focusTrove: Trove.Trove,
 		refreshTrove: Trove.Trove,
