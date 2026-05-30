@@ -155,7 +155,6 @@ local function Fitter(props: Props)
 				AnchorPoint = Vector2.new(0.5, 0),
 				Position = UDim2.new(0.5, 0, 1, 8),
 				Size = UDim2.new(0, 300, 0, 28),
-				Transparency = 0, --hoverTransparency,
 				AnimationTrack = props.AnimationTrack,
 				Disabled = props.Disabled,
 			}),

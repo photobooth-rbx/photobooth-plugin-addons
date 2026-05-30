@@ -23,7 +23,6 @@ export type Props = {
 	Position: UDim2?,
 	Size: UDim2?,
 
-	Transparency: number,
 	AnimationTrack: AnimationTrack?,
 
 	Disabled: boolean?,
@@ -174,8 +173,7 @@ local function PlaybackBar(props: Props)
 			Size = UDim2.fromScale(1, 1),
 		}),
 
-		Canvas = React.createElement("CanvasGroup", {
-			GroupTransparency = props.Transparency,
+		Canvas = React.createElement("Frame", {
 			BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Titlebar),
 			BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 			AnchorPoint = props.AnchorPoint,
