@@ -2,9 +2,9 @@ local UserInputService = game:GetService("UserInputService")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local PriorityStepper = require(pluginRoot.Utilities.PriorityStepper)
-
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Photobooth = require(pluginRoot.Packages.PhotoboothBindings)
+local Signal = require(pluginRoot.Packages.Signal)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local appRoot = script:FindFirstAncestor("AutoCapture")
@@ -13,6 +13,8 @@ local RenderPriorities = require(appRoot.RenderPriorities)
 local AnimationManager = require(script.AnimationManager)
 local PointCloud = require(script.PointCloud)
 
+local YAW_INIT = math.pi
+local PITCH_INIT = 0
 local PITCH_LIMIT = math.rad(89)
 
 local ORBIT_SENSITIVITY = 0.005
@@ -36,51 +38,65 @@ local AutoCaptureControllerClass = {}
 AutoCaptureControllerClass.__index = AutoCaptureControllerClass
 AutoCaptureControllerClass.ClassName = "AutoCaptureController"
 
-function AutoCaptureControllerStatic.createState()
+local function createStaticObservableState()
 	return ObservableValue.new({
-		AlphaBleed = true,
-		CaptureType = "NoSkybox",
-
-		IsFullScreen = false,
-		CaptureSize = Vector2.new(256, 256),
-		FitType = "Orbital",
-		TryUseMeshVertices = false,
-		DistanceScale = 1,
-		IsCameraAngleSynced = true,
-
-		PaddingVisible = true,
-		PaddingUniform = true,
-		Padding = 0,
-		PaddingTop = 0,
-		PaddingRight = 0,
-		PaddingBottom = 0,
-		PaddingLeft = 0,
-
-		AnimationTrack = nil :: AnimationTrack?,
+		isSynced = true,
+		animationTrack = nil :: AnimationTrack?,
 	})
 end
 
-function AutoCaptureControllerStatic.new(observableState: ObservableState)
+local function createDynamicObservableState()
+	return ObservableValue.new({
+		alphaBleed = true,
+		captureType = "NoSkybox",
+
+		isFullScreen = false,
+		captureSize = Vector2.new(256, 256),
+		fitType = "Orbital",
+		tryUseMeshVertices = false,
+		distanceScale = 1,
+
+		paddingVisible = true,
+		paddingUniform = true,
+		padding = 0,
+		paddingTop = 0,
+		paddingRight = 0,
+		paddingBottom = 0,
+		paddingLeft = 0,
+	})
+end
+
+local function createNewFocus()
+	local dynamicObservable = createDynamicObservableState()
+	local dynamicState = dynamicObservable:get()
+	dynamicObservable:Destroy()
+
+	return {
+		yaw = YAW_INIT,
+		pitch = PITCH_INIT,
+		renderCF = CFrame.fromEulerAnglesYXZ(PITCH_INIT, YAW_INIT, 0),
+		dynamicState = dynamicState,
+	}
+end
+
+function AutoCaptureControllerStatic.new()
 	local self = setmetatable({}, AutoCaptureControllerClass) :: AutoCaptureController
 
 	self.captureRect = Rect.new(0, 0, 0, 0)
 	self.paddedRect = Rect.new(0, 0, 0, 0)
-	self.observableState = observableState
 
-	local yaw, pitch = math.pi, 0
-	self.sharedCameraState = {
-		yaw = yaw,
-		pitch = pitch,
-		prevCF = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0),
-	}
+	self.staticObservableState = createStaticObservableState()
+	self.dynamicObservableState = createDynamicObservableState()
 
 	self.focusedModel = nil
+	self.focusedModelChanged = Signal.new()
+
 	self.stateByModel = {}
+	self.focusTrove = Trove.new()
+	self.focusShared = createNewFocus()
 
 	self.isInputFrozen = true
 	self.meshDataCache = {}
-
-	self.focusTrove = Trove.new()
 
 	return self
 end
@@ -139,13 +155,13 @@ end
 
 -- Methods
 
-function AutoCaptureControllerClass._getActiveCameraState(self: AutoCaptureController)
-	local focusedModel = self.focusedModel
-	local focusedModelState = focusedModel and self.stateByModel[focusedModel]
-	if focusedModelState and not self.observableState:get().IsCameraAngleSynced then
-		return focusedModelState.cameraState
+function AutoCaptureControllerClass._getActiveFocus(self: AutoCaptureController)
+	local model = self.focusedModel
+	local modelState = model and self.stateByModel[model]
+	if modelState and not self.staticObservableState:get().isSynced then
+		return modelState.focus
 	end
-	return self.sharedCameraState
+	return self.focusShared
 end
 
 function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureController)
@@ -169,12 +185,11 @@ function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureControlle
 			return
 		end
 
-		local cameraState = self:_getActiveCameraState()
+		local focus = self:_getActiveFocus()
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			if rotating then
-				cameraState.yaw -= input.Delta.X * ORBIT_SENSITIVITY
-				cameraState.pitch =
-					math.clamp(cameraState.pitch - input.Delta.Y * ORBIT_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
+				focus.yaw = focus.yaw - input.Delta.X * ORBIT_SENSITIVITY
+				focus.pitch = math.clamp(focus.pitch - input.Delta.Y * ORBIT_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
 			end
 		end
 	end))
@@ -184,10 +199,10 @@ function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureControlle
 	local function cameraAdded(camera: Camera)
 		cameraTrove:Clean()
 		cameraTrove:Add(camera:GetPropertyChangedSignal("CFrame"):Connect(function()
-			local cameraState = self:_getActiveCameraState()
+			local focus = self:_getActiveFocus()
 			local rx, ry, _rz = camera.CFrame:ToEulerAnglesYXZ()
-			cameraState.pitch = rx
-			cameraState.yaw = ry
+			focus.pitch = rx
+			focus.yaw = ry
 		end))
 	end
 
@@ -204,11 +219,11 @@ function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureControlle
 end
 
 function AutoCaptureControllerClass._createPointCloud(self: AutoCaptureController, model: Model)
-	local tryUseMeshVertices = self.observableState:get().TryUseMeshVertices
+	local tryUseMeshVertices = self.dynamicObservableState:get().tryUseMeshVertices
 	local pointCloud = PointCloud.new(model, tryUseMeshVertices, self.meshDataCache)
 
-	pointCloud.trove:Add(self.observableState:onChanged(function()
-		local newTryUseMeshVertices = self.observableState:get().TryUseMeshVertices
+	pointCloud.trove:Add(self.dynamicObservableState:onChanged(function()
+		local newTryUseMeshVertices = self.dynamicObservableState:get().tryUseMeshVertices
 		if pointCloud.tryUseMeshVertices ~= newTryUseMeshVertices then
 			pointCloud.tryUseMeshVertices = newTryUseMeshVertices
 			pointCloud:recalculateVertices()
@@ -219,19 +234,19 @@ function AutoCaptureControllerClass._createPointCloud(self: AutoCaptureControlle
 end
 
 function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
-	local focusedModel = assert(self.focusedModel)
-	local focusedModelState = assert(self.stateByModel[focusedModel])
+	local model = assert(self.focusedModel)
+	local modelState = assert(self.stateByModel[model])
 
 	local cleanupTrove = Trove.new()
 
 	local function render()
-		local cameraState = self:_getActiveCameraState()
+		local focus = self:_getActiveFocus()
+		local dynamic = self.dynamicObservableState:get()
 
 		local camera = workspace.CurrentCamera
 		local viewportSize = camera.ViewportSize
-		local rotation = CFrame.fromEulerAnglesYXZ(cameraState.pitch, cameraState.yaw, 0)
+		local rotation = CFrame.fromEulerAnglesYXZ(focus.pitch, focus.yaw, 0)
 
-		local state = self.observableState:get()
 		local rectCenter = self.paddedRect.Min + (self.paddedRect.Max - self.paddedRect.Min) / 2
 
 		local aspect = self.paddedRect.Width / self.paddedRect.Height
@@ -239,10 +254,10 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 		local scaledFov2 = math.atan(math.tan(math.rad(camera.FieldOfView / 2)) * scaleY)
 		local sinFov2 = math.sin(scaledFov2 * math.min(1, aspect))
 
-		local _aabbCenter, aabbSize = focusedModel:GetBoundingBox()
+		local _aabbCenter, aabbSize = model:GetBoundingBox()
 		local radius = aabbSize.Magnitude / 2
 
-		local distance = (radius / sinFov2) * state.DistanceScale
+		local distance = (radius / sinFov2) * dynamic.distanceScale
 		local cameraCF = rotation * CFrame.new(0, 0, distance)
 
 		local distortedCF = cameraCF
@@ -256,8 +271,8 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 		camera.CFrame = distortedCF
 		camera.Focus = distortedCF
 
-		cameraState.prevCF = distortedCF
-		focusedModelState.cameraState = table.clone(cameraState)
+		focus.renderCF = distortedCF
+		modelState.focus = table.clone(focus)
 	end
 
 	cleanupTrove:Add(self:_listenOrbitInput())
@@ -270,29 +285,29 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 end
 
 function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
-	local focusedModel = assert(self.focusedModel)
-	local focusedModelState = assert(self.stateByModel[focusedModel])
+	local model = assert(self.focusedModel)
+	local modelState = assert(self.stateByModel[model])
 
 	local cleanupTrove = Trove.new()
-	local pointCloud = self:_createPointCloud(focusedModel)
+	local pointCloud = self:_createPointCloud(model)
 
 	cleanupTrove:Add(function()
 		pointCloud:Destroy()
 	end)
 
-	cleanupTrove:Add(focusedModelState.animationManager:onTransform(function()
+	cleanupTrove:Add(modelState.animationManager:onTransform(function()
 		pointCloud:recalculateVertices()
 	end))
 
 	local function render()
-		local cameraState = self:_getActiveCameraState()
+		local focus = self:_getActiveFocus()
+		local dynamic = self.dynamicObservableState:get()
 
 		local camera = workspace.CurrentCamera
 		local viewportSize = camera.ViewportSize
-		local rotation = CFrame.fromEulerAnglesYXZ(cameraState.pitch, cameraState.yaw, 0)
+		local rotation = CFrame.fromEulerAnglesYXZ(focus.pitch, focus.yaw, 0)
 		local rotationInv = rotation:Inverse()
 
-		local state = self.observableState:get()
 		local rectCenter = self.paddedRect.Min + (self.paddedRect.Max - self.paddedRect.Min) / 2
 
 		local tanYFov2 = math.tan(math.rad(camera.FieldOfView / 2))
@@ -311,7 +326,7 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		local hMax, hMin = viewProjectionEdgeHits(cloud, "X", furthest, tanXFov2Scaled)
 		local vMax, vMin = viewProjectionEdgeHits(cloud, "Y", furthest, tanYFov2Scaled)
 		local distance = math.max(((hMax - hMin) / 2) / tanXFov2Scaled, ((vMax - vMin) / 2) / tanYFov2Scaled)
-			* state.DistanceScale
+			* dynamic.distanceScale
 
 		local cameraCF = rotation * CFrame.new((hMax + hMin) / 2, (vMax + vMin) / 2, furthest + distance)
 
@@ -326,8 +341,8 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		camera.CFrame = distortedCF
 		camera.Focus = distortedCF
 
-		cameraState.prevCF = distortedCF
-		focusedModelState.cameraState = table.clone(cameraState)
+		focus.renderCF = distortedCF
+		modelState.focus = table.clone(focus)
 	end
 
 	cleanupTrove:Add(self:_listenOrbitInput())
@@ -340,15 +355,15 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 end
 
 function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
-	local focusedModel = assert(self.focusedModel)
-	local focusedModelState = assert(self.stateByModel[focusedModel])
+	local model = assert(self.focusedModel)
+	local modelState = assert(self.stateByModel[model])
 
 	local cleanupTrove = Trove.new()
 
 	-- Drive the camera ourselves on top of CameraType.Scriptable rather than
 	-- handing control to Studio's edit-mode camera (which snaps on first input).
 	-- Hold the right mouse button to look + fly: WASD move, E/Q up/down, Shift to slow speed
-	local startCF = focusedModelState.cameraState.prevCF
+	local startCF = modelState.focus.renderCF
 	local position = startCF.Position
 	local pitch, yaw = startCF:ToEulerAnglesYXZ()
 	local moveSpeed = 0
@@ -369,7 +384,7 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 	end))
 
 	local function render(dt: number)
-		local cameraState = self:_getActiveCameraState()
+		local focus = self:_getActiveFocus()
 
 		local camera = workspace.CurrentCamera
 		camera.CameraType = Enum.CameraType.Scriptable
@@ -407,10 +422,10 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 		camera.CFrame = cameraCF
 		camera.Focus = cameraCF
 
-		cameraState.pitch = pitch
-		cameraState.yaw = yaw
-		cameraState.prevCF = cameraCF
-		focusedModelState.cameraState = table.clone(cameraState)
+		focus.pitch = pitch
+		focus.yaw = yaw
+		focus.renderCF = cameraCF
+		modelState.focus = table.clone(focus)
 	end
 
 	cleanupTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, render))
@@ -435,19 +450,53 @@ function AutoCaptureControllerClass._watchFitType(self: AutoCaptureController)
 		end
 	end
 
-	local fitType = self.observableState:get().FitType
+	local fitType = self.dynamicObservableState:get().fitType
 	setFitType(fitType)
 
-	self.focusTrove:Add(self.observableState:onChanged(function()
-		local newState = self.observableState:get()
-		if fitType ~= newState.FitType then
-			fitType = newState.FitType
+	self.focusTrove:Add(self.dynamicObservableState:onChanged(function()
+		local newFitType = self.dynamicObservableState:get().fitType
+		if fitType ~= newFitType then
+			fitType = newFitType
 			setFitType(fitType)
 		end
 	end))
 
 	return function()
 		fitTypeTrove:Destroy()
+	end
+end
+
+function AutoCaptureControllerClass._watchIsSynced(self: AutoCaptureController)
+	local model = assert(self.focusedModel)
+	local modelState = assert(self.stateByModel[model])
+
+	local isSynced = self.staticObservableState:get().isSynced
+	if isSynced then
+		self.dynamicObservableState:set(table.clone(self.focusShared.dynamicState))
+	else
+		self.dynamicObservableState:set(table.clone(modelState.focus.dynamicState))
+	end
+
+	local cleanupTrove = Trove.new()
+	cleanupTrove:Add(self.staticObservableState:onChanged(function()
+		local newIsSynced = self.staticObservableState:get().isSynced
+		if isSynced ~= newIsSynced then
+			isSynced = newIsSynced
+
+			if isSynced then
+				modelState.focus.dynamicState = table.clone(self.focusShared.dynamicState)
+			end
+
+			self.dynamicObservableState:set(table.clone(modelState.focus.dynamicState))
+		end
+	end))
+
+	cleanupTrove:Add(function()
+		modelState.focus.dynamicState = table.clone(self.dynamicObservableState:get())
+	end)
+
+	return function()
+		cleanupTrove:Destroy()
 	end
 end
 
@@ -464,28 +513,28 @@ function AutoCaptureControllerClass.getFocusedModel(self: AutoCaptureController)
 end
 
 function AutoCaptureControllerClass.loadModel(self: AutoCaptureController, model: Model)
-	local cameraState = table.clone(self.sharedCameraState)
+	local focus = createNewFocus()
 	local animationManager = AnimationManager.new(model)
-
 	globalTicket = globalTicket + 1
 
 	self.stateByModel[model] = {
+		focus = focus,
+		model = model,
 		ticket = globalTicket,
-		cameraState = cameraState,
 		animationManager = animationManager,
 	}
 end
 
 function AutoCaptureControllerClass.unloadModel(self: AutoCaptureController, model: Model)
-	local focusedModelState = assert(self.stateByModel[model], "No state exists for the provided model.")
-	focusedModelState.animationManager:Destroy()
+	local modelState = assert(self.stateByModel[model], "No state exists for the provided model.")
+	modelState.animationManager:Destroy()
 	self.stateByModel[model] = nil
 end
 
 function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFrozen: boolean, model: Model)
 	self:unfocus()
 
-	local focusedModelState = assert(self.stateByModel[model], "No state exists for the provided model.")
+	local modelState = assert(self.stateByModel[model], "No state exists for the provided model.")
 
 	self.focusedModel = model
 	self.isInputFrozen = inputFrozen
@@ -495,23 +544,22 @@ function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFroz
 	model.Parent = camera
 
 	self.focusTrove:Add(function()
+		self.focusedModel = nil
+		self.isInputFrozen = false
+
 		workspace.CurrentCamera.CameraType = prevCameraType
 		model.Parent = nil
 	end)
 
-	self.focusTrove:Add(focusedModelState.animationManager:hookTrack(function(track)
-		self.observableState:update()(function(state)
-			state.AnimationTrack = track
+	self.focusTrove:Add(modelState.animationManager:hookTrack(function(track)
+		self.staticObservableState:update()(function(state)
+			state.animationTrack = track
 			return state
 		end)
 	end))
 
-	if self.observableState:get().IsCameraAngleSynced then
-		focusedModelState.cameraState = table.clone(self.sharedCameraState)
-	end
-
-	local stopWatching = self:_watchFitType()
-	self.focusTrove:Add(stopWatching)
+	self.focusTrove:Add(self:_watchIsSynced())
+	self.focusTrove:Add(self:_watchFitType())
 end
 
 function AutoCaptureControllerClass.unfocus(self: AutoCaptureController)
@@ -540,11 +588,11 @@ function AutoCaptureControllerClass.getModels(self: AutoCaptureController)
 end
 
 function AutoCaptureControllerClass.capture(self: AutoCaptureController)
-	local observedState = self.observableState:get()
+	local dynamic = self.dynamicObservableState:get()
 	local result = Photobooth.captureViewport({
 		rect = self.captureRect,
-		type = observedState.CaptureType :: any,
-		alphaBleed = observedState.AlphaBleed,
+		type = dynamic.captureType :: any,
+		alphaBleed = dynamic.alphaBleed,
 	})
 
 	return result
@@ -556,37 +604,43 @@ end
 
 --
 
-type CameraState = {
+export type StaticState = typeof(createStaticObservableState():get())
+export type StaticObservableState = ObservableValue.ObservableValue<StaticState>
+
+export type DynamicState = typeof(createDynamicObservableState():get())
+export type DynamicObservableState = ObservableValue.ObservableValue<DynamicState>
+
+type Focus = {
 	yaw: number,
 	pitch: number,
-	prevCF: CFrame,
+	renderCF: CFrame,
+	dynamicState: DynamicState,
 }
 
 type ModelState = {
 	ticket: number,
-	cameraState: CameraState,
+	model: Model,
+	focus: Focus,
 	animationManager: AnimationManager.AnimationManager,
 }
-
-export type State = typeof(AutoCaptureControllerStatic.createState():get())
-export type ObservableState = ObservableValue.ObservableValue<State>
 
 export type AutoCaptureController = typeof(setmetatable(
 	{} :: {
 		captureRect: Rect,
 		paddedRect: Rect,
-		observableState: ObservableState,
 
-		sharedCameraState: CameraState,
+		staticObservableState: StaticObservableState,
+		dynamicObservableState: DynamicObservableState,
 
 		focusedModel: Model?,
+		focusedModelChanged: Signal.Signal<()>,
+
+		focusShared: Focus,
+		focusTrove: Trove.Trove,
 		stateByModel: { [Model]: ModelState },
 
 		isInputFrozen: boolean,
 		meshDataCache: PointCloud.MeshDataCache,
-
-		focusTrove: Trove.Trove,
-		refreshTrove: Trove.Trove,
 	},
 	AutoCaptureControllerClass
 ))
