@@ -328,16 +328,20 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 	local focusedModel = assert(self.focusedModel)
 	local focusedModelState = assert(self.stateByModel[focusedModel])
 
-	if not self.observableState:get().IsCameraAngleSynced then
+	local cleanupTrove = Trove.new()
+
+	do
 		local camera = workspace.CurrentCamera
-		camera.CameraType = if self.isInputFrozen then Enum.CameraType.Scriptable else Enum.CameraType.Fixed
-		camera.CFrame = focusedModelState.renderCF
+		camera.CameraType = if self.isInputFrozen then Enum.CameraType.Scriptable else Enum.CameraType.Attach
+		if not self.observableState:get().IsCameraAngleSynced then
+			camera.CFrame = focusedModelState.renderCF
+		end
+		camera.Focus = CFrame.identity
 	end
 
-	local cleanupTrove = Trove.new()
 	cleanupTrove:Add(PriorityStepper.render:connect(RenderPriorities.CAMERA, function()
 		local camera = workspace.CurrentCamera
-		camera.CameraType = if self.isInputFrozen then Enum.CameraType.Scriptable else Enum.CameraType.Fixed
+		camera.CameraType = if self.isInputFrozen then Enum.CameraType.Scriptable else Enum.CameraType.Attach
 		focusedModelState.renderCF = camera.CFrame
 	end))
 
