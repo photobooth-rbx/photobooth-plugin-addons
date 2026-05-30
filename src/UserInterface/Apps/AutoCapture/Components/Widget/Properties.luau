@@ -170,21 +170,21 @@ local function Properties(props: Props, ref: any)
 					Disabled = props.Disabled,
 					LayoutOrder = 5,
 				}),
+			}),
 
-				IsCameraAngleSynced = React.createElement(StudioProperties.Boolean, {
-					FieldName = "Sync Angle",
+			IsCameraAngleSynced = React.createElement(StudioProperties.Boolean, {
+				FieldName = "Sync Angle",
 
-					Value = observedState.IsCameraAngleSynced,
-					OnValueSubmitted = function(newValue)
-						props.ObservableState:update()(function(state)
-							state.IsCameraAngleSynced = newValue
-							return state
-						end)
-					end,
+				Value = observedState.IsCameraAngleSynced,
+				OnValueSubmitted = function(newValue)
+					props.ObservableState:update()(function(state)
+						state.IsCameraAngleSynced = newValue
+						return state
+					end)
+				end,
 
-					Disabled = props.Disabled,
-					LayoutOrder = 6,
-				}),
+				Disabled = props.Disabled,
+				LayoutOrder = 6,
 			}),
 		}),
 
