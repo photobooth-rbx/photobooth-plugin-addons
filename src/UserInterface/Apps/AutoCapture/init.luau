@@ -106,7 +106,9 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 								if focusedModel then
 									local result = controller:capture()
 									if result then
-										result.Name = (focusedModel:GetAttribute("CaptureName") :: string?) or "Capture"
+										local captureName = (focusedModel:GetAttribute("CaptureName") :: string?)
+											or "Capture"
+										result.Name = captureName
 										result.Parent = StarterGui
 
 										plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
@@ -132,7 +134,8 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							hideWorkspace(function()
 								local folder = Instance.new("Folder")
 								local prevFocusedModel = controller:getFocusedModel()
-								for i, model in modelsRef.current do
+
+								for i, model in controller:getModels() do
 									controller:focus(true, model)
 									Photobooth.yieldUntilNextFrame()
 

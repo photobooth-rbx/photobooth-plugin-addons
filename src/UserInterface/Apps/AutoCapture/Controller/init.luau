@@ -20,6 +20,7 @@ local PITCH_LIMIT = math.rad(89)
 local MIN_ZOOM = 0
 
 local AutoCaptureControllerStatic = {}
+local globalTicket = 0
 
 local AutoCaptureControllerClass = {}
 AutoCaptureControllerClass.__index = AutoCaptureControllerClass
@@ -373,7 +374,10 @@ function AutoCaptureControllerClass.loadModel(self: AutoCaptureController, model
 	local renderCF = CFrame.fromEulerAnglesYXZ(orbit.pitch, orbit.yaw, 0) * CFrame.new(0, 0, orbit.zoom)
 	local animationManager = AnimationManager.new(model)
 
+	globalTicket = globalTicket + 1
+
 	self.stateByModel[model] = {
+		ticket = globalTicket,
 		orbit = orbit,
 		renderCF = renderCF,
 		animationManager = animationManager,
@@ -422,6 +426,27 @@ function AutoCaptureControllerClass.unfocus(self: AutoCaptureController)
 	self.focusTrove:Clean()
 end
 
+function AutoCaptureControllerClass.getModels(self: AutoCaptureController)
+	local modelAndIndexArr = {}
+	for model, modelState in self.stateByModel do
+		table.insert(modelAndIndexArr, {
+			index = modelState.ticket,
+			model = model,
+		})
+	end
+
+	table.sort(modelAndIndexArr, function(a, b)
+		return a.index < b.index
+	end)
+
+	local models = {}
+	for _, modelAndIndex in modelAndIndexArr do
+		table.insert(models, modelAndIndex.model)
+	end
+
+	return models
+end
+
 function AutoCaptureControllerClass.capture(self: AutoCaptureController)
 	local observedState = self.observableState:get()
 	local result = Photobooth.captureViewport({
@@ -446,6 +471,7 @@ type Orbit = {
 }
 
 type ModelState = {
+	ticket: number,
 	orbit: Orbit,
 	renderCF: CFrame,
 	animationManager: AnimationManager.AnimationManager,
