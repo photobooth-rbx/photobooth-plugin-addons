@@ -106,7 +106,9 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 								if focusedModel then
 									local result = controller:capture()
 									if result then
+										result.Name = (focusedModel:GetAttribute("CaptureName") :: string?) or "Capture"
 										result.Parent = StarterGui
+
 										plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
 										SelectionService:Set({ result })
 									end
@@ -130,12 +132,14 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							hideWorkspace(function()
 								local folder = Instance.new("Folder")
 								local prevFocusedModel = controller:getFocusedModel()
-								for _, model in modelsRef.current do
+								for i, model in modelsRef.current do
 									controller:focus(true, model)
 									Photobooth.yieldUntilNextFrame()
 
 									local result = controller:capture()
 									if result then
+										local captureName = (model:GetAttribute("CaptureName") :: string?) or "Capture"
+										result.Name = `{i}_{captureName}`
 										result.Parent = folder
 									end
 								end
@@ -179,9 +183,10 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							model.Name = "AutoCaptureModel"
 							model.WorldPivot = aabbCenterCF * pvInstanceCopy:GetPivot().Rotation:Inverse()
 							model:PivotTo(CFrame.identity)
+							model:SetAttribute("CaptureName", pvInstanceCopy.Name)
 
 							modelsRef.current[element] = model
-							controller:loadModel(modelsRef.current[element], pvInstanceCopy.Name)
+							controller:loadModel(modelsRef.current[element])
 						end
 					end,
 					OnListElementRemoved = function(element)

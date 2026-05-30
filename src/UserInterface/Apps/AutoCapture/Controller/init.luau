@@ -220,6 +220,7 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 		camera.CFrame = distortedCF
 		camera.Focus = distortedCF
 
+		focusedModelState.orbit = table.clone(orbit)
 		focusedModelState.renderCF = distortedCF
 	end
 
@@ -290,6 +291,7 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		camera.CFrame = distortedCF
 		camera.Focus = distortedCF
 
+		focusedModelState.orbit = table.clone(orbit)
 		focusedModelState.renderCF = distortedCF
 	end
 
@@ -366,13 +368,12 @@ function AutoCaptureControllerClass.getFocusedModel(self: AutoCaptureController)
 	return self.focusedModel
 end
 
-function AutoCaptureControllerClass.loadModel(self: AutoCaptureController, model: Model, name: string)
+function AutoCaptureControllerClass.loadModel(self: AutoCaptureController, model: Model)
 	local orbit = table.clone(self.sharedOrbit)
 	local renderCF = CFrame.fromEulerAnglesYXZ(orbit.pitch, orbit.yaw, 0) * CFrame.new(0, 0, orbit.zoom)
 	local animationManager = AnimationManager.new(model)
 
 	self.stateByModel[model] = {
-		name = name,
 		orbit = orbit,
 		renderCF = renderCF,
 		animationManager = animationManager,
@@ -380,15 +381,15 @@ function AutoCaptureControllerClass.loadModel(self: AutoCaptureController, model
 end
 
 function AutoCaptureControllerClass.unloadModel(self: AutoCaptureController, model: Model)
-	local state = assert(self.stateByModel[model], "No state exists for the provided model.")
-	state.animationManager:Destroy()
+	local focusedModelState = assert(self.stateByModel[model], "No state exists for the provided model.")
+	focusedModelState.animationManager:Destroy()
 	self.stateByModel[model] = nil
 end
 
 function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFrozen: boolean, model: Model)
 	self:unfocus()
 
-	local state = assert(self.stateByModel[model], "No state exists for the provided model.")
+	local focusedModelState = assert(self.stateByModel[model], "No state exists for the provided model.")
 
 	self.focusedModel = model
 	self.isInputFrozen = inputFrozen
@@ -397,17 +398,21 @@ function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFroz
 	local prevCameraType = camera.CameraType
 	model.Parent = camera
 
-	self.focusTrove:Add(state.animationManager:hookTrack(function(track)
+	self.focusTrove:Add(function()
+		workspace.CurrentCamera.CameraType = prevCameraType
+		model.Parent = nil
+	end)
+
+	self.focusTrove:Add(focusedModelState.animationManager:hookTrack(function(track)
 		self.observableState:update()(function(state)
 			state.AnimationTrack = track
 			return state
 		end)
 	end))
 
-	self.focusTrove:Add(function()
-		workspace.CurrentCamera.CameraType = prevCameraType
-		model.Parent = nil
-	end)
+	if self.observableState:get().IsCameraAngleSynced then
+		focusedModelState.orbit = table.clone(self.sharedOrbit)
+	end
 
 	local stopWatching = self:_watchFitType()
 	self.focusTrove:Add(stopWatching)
@@ -418,21 +423,13 @@ function AutoCaptureControllerClass.unfocus(self: AutoCaptureController)
 end
 
 function AutoCaptureControllerClass.capture(self: AutoCaptureController)
-	local result
-	local focusedModel = self.focusedModel
-	local focusedModelState = focusedModel and self.stateByModel[focusedModel]
-	if focusedModelState then
-		local observedState = self.observableState:get()
-		result = Photobooth.captureViewport({
-			rect = self.captureRect,
-			type = observedState.CaptureType :: any,
-			alphaBleed = observedState.AlphaBleed,
-		})
+	local observedState = self.observableState:get()
+	local result = Photobooth.captureViewport({
+		rect = self.captureRect,
+		type = observedState.CaptureType :: any,
+		alphaBleed = observedState.AlphaBleed,
+	})
 
-		if result then
-			result.Name = focusedModelState.name
-		end
-	end
 	return result
 end
 
@@ -449,7 +446,6 @@ type Orbit = {
 }
 
 type ModelState = {
-	name: string,
 	orbit: Orbit,
 	renderCF: CFrame,
 	animationManager: AnimationManager.AnimationManager,
