@@ -18,9 +18,6 @@ local PITCH_LIMIT = math.rad(89)
 local ORBIT_SENSITIVITY = 0.005
 
 local FREE_LOOK_SENSITIVITY = 0.005
-local FREE_MOVE_SPEED = 16
-local FREE_MOVE_ACCELERATION = 1
-local FREE_MOVE_SPEED_SHIFT = 8
 local FREE_MOVE_SPEED_MAX = 1000
 
 local FREE_MOVE_KEYS = {
@@ -131,6 +128,13 @@ local function viewProjectionEdgeHits(cloud: { Vector3 }, axis: "X" | "Y", depth
 	end
 
 	return max, min
+end
+
+local function getStudioSetting<T>(key: string, default: T)
+	local success, value = pcall(function()
+		return (settings().Studio :: any)[key] :: T
+	end)
+	return if success then value else default
 end
 
 -- Methods
@@ -347,7 +351,7 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 	local startCF = focusedModelState.cameraState.prevCF
 	local position = startCF.Position
 	local pitch, yaw = startCF:ToEulerAnglesYXZ()
-	local moveSpeed = FREE_MOVE_SPEED
+	local moveSpeed = 0
 
 	local function isShiftDown()
 		return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
@@ -373,24 +377,29 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 		local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
 
 		if not self.isInputFrozen then
+			local studioCameraSpeed = getStudioSetting("Camera Speed", 1.5) * 10
+			local studioShiftSpeed = getStudioSetting("Shift Speed", 0.2) * 10
+
 			if isShiftDown() then
-				moveSpeed = FREE_MOVE_SPEED_SHIFT
+				moveSpeed = studioShiftSpeed
 			else
-				moveSpeed = math.max(moveSpeed, FREE_MOVE_SPEED) + dt * FREE_MOVE_ACCELERATION
-				moveSpeed = math.clamp(moveSpeed, FREE_MOVE_SPEED_SHIFT, FREE_MOVE_SPEED_MAX)
+				local newMoveSpeed = math.max(moveSpeed, studioCameraSpeed) + dt * (studioCameraSpeed / 2)
+				moveSpeed = math.clamp(newMoveSpeed, studioShiftSpeed, FREE_MOVE_SPEED_MAX)
 			end
 
-			local direction = Vector3.zero
+			local move = Vector3.zero
 			for keyCode, vec in FREE_MOVE_KEYS do
 				if UserInputService:IsKeyDown(keyCode) then
-					direction = direction + rotation:VectorToWorldSpace(vec)
+					move = move + rotation:VectorToWorldSpace(vec)
 				end
 			end
 
-			local directionMagnitude = direction.Magnitude
-			if directionMagnitude > 0 then
-				local directionUnit = direction / directionMagnitude
-				position = position + directionUnit * moveSpeed * dt
+			local moveMagnitude = move.Magnitude
+			if moveMagnitude > 0 then
+				local moveUnit = move / moveMagnitude
+				position = position + moveUnit * moveSpeed * dt
+			else
+				moveSpeed = 0
 			end
 		end
 
