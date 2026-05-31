@@ -401,10 +401,13 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 
 	local cleanupTrove = Trove.new()
 
-	-- Drive the camera ourselves on top of CameraType.Scriptable rather than
-	-- handing control to Studio's edit-mode camera (which snaps on first input).
-	-- Hold the right mouse button to look + fly: WASD move, E/Q up/down, Shift to slow speed
-	local startCF = modelState.focus.renderCF
+	local startCF: CFrame
+	if self.staticObservableState:get().isSynced then
+		startCF = self.focusShared.renderCF
+	else
+		startCF = modelState.focus.renderCF
+	end
+
 	local position = startCF.Position
 	local pitch, yaw = startCF:ToEulerAnglesYXZ()
 	local moveSpeed = 0
@@ -525,6 +528,9 @@ function AutoCaptureControllerClass._watchIsSynced(self: AutoCaptureController)
 			isSynced = newIsSynced
 
 			if isSynced then
+				modelState.focus.dynamicState = table.clone(self.dynamicObservableState:get())
+				self.focusShared.dynamicState = table.clone(modelState.focus.dynamicState)
+			else
 				modelState.focus.dynamicState = table.clone(self.focusShared.dynamicState)
 			end
 
@@ -533,6 +539,9 @@ function AutoCaptureControllerClass._watchIsSynced(self: AutoCaptureController)
 	end))
 
 	cleanupTrove:Add(function()
+		if isSynced then
+			self.focusShared.dynamicState = table.clone(self.dynamicObservableState:get())
+		end
 		modelState.focus.dynamicState = table.clone(self.dynamicObservableState:get())
 	end)
 
@@ -568,8 +577,20 @@ end
 
 function AutoCaptureControllerClass.unloadModel(self: AutoCaptureController, model: Model)
 	local modelState = assert(self.stateByModel[model], "No state exists for the provided model.")
+	if self.focusedModel == model then
+		self:unfocus()
+	end
+
 	modelState.animationManager:Destroy()
 	self.stateByModel[model] = nil
+
+	if not next(self.stateByModel) then
+		self.dynamicObservableState:set(table.clone(self.focusShared.dynamicState))
+		self.staticObservableState:update()(function(state)
+			state.isSynced = true
+			return state
+		end)
+	end
 end
 
 function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFrozen: boolean, model: Model)
