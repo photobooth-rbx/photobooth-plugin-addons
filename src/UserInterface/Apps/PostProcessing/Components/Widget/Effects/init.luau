@@ -1,13 +1,11 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
-local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 
-local OutlineLayer = require(script.Layers.OutlineLayer)
+local StrokeLayer = require(script.Layers.StrokeLayer)
 local DropShadowLayer = require(script.Layers.DropShadowLayer)
 
-local PLUS_ICON = assert(Lucide.GetAsset("plus", 16))
+local SCROLL_GRADIENT_INSET_HEIGHT = 22
 
 export type Props = {
 	AnchorPoint: Vector2?,
@@ -20,8 +18,6 @@ export type Props = {
 }
 
 local function Effects(props: Props)
-	local theme = StudioComponents.useTheme()
-
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		AnchorPoint = props.AnchorPoint,
@@ -32,7 +28,7 @@ local function Effects(props: Props)
 	}, {
 		Scroll = React.createElement(StudioProperties.VerticalScroll, {
 			Size = UDim2.fromScale(1, 1),
-			GradientHeight = 22,
+			GradientHeight = SCROLL_GRADIENT_INSET_HEIGHT,
 			ScrollInset = UDim.new(0, -2),
 			ScrollBarTransparency = 0.7,
 			ScrollBarFades = true,
@@ -40,7 +36,7 @@ local function Effects(props: Props)
 			UIListLayout = React.createElement("UIListLayout", {
 				FillDirection = Enum.FillDirection.Vertical,
 				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, 10),
+				Padding = UDim.new(0, 0),
 			}),
 
 			Layers = React.createElement("Frame", {
@@ -55,7 +51,7 @@ local function Effects(props: Props)
 					Padding = UDim.new(0, 0),
 				}),
 
-				Outline = React.createElement(OutlineLayer, {
+				Stroke = React.createElement(StrokeLayer, {
 					Disabled = props.Disabled,
 					LayoutOrder = 1,
 				}),
@@ -64,38 +60,27 @@ local function Effects(props: Props)
 					Disabled = props.Disabled,
 					LayoutOrder = 2,
 				}),
+
+				DropShadow2 = React.createElement(DropShadowLayer, {
+					Disabled = props.Disabled,
+					LayoutOrder = 3,
+				}),
+
+				DropShadow3 = React.createElement(DropShadowLayer, {
+					Disabled = props.Disabled,
+					LayoutOrder = 4,
+				}),
+
+				DropShadow4 = React.createElement(DropShadowLayer, {
+					Disabled = props.Disabled,
+					LayoutOrder = 5,
+				}),
 			}),
 
-			AddNewButton = false and React.createElement("Frame", {
+			Padding = React.createElement("Frame", {
 				BackgroundTransparency = 1,
-				AnchorPoint = Vector2.new(0, 1),
-				Position = UDim2.fromScale(0, 1),
-				Size = UDim2.new(1, 0, 0, 38),
-				ClipsDescendants = true,
+				Size = UDim2.new(1, 0, 0, SCROLL_GRADIENT_INSET_HEIGHT),
 				LayoutOrder = 2,
-			}, {
-				Padding = React.createElement("UIPadding", {
-					PaddingLeft = UDim.new(0, 3),
-					PaddingRight = UDim.new(0, 3),
-					PaddingTop = UDim.new(0, 3),
-					PaddingBottom = UDim.new(0, 4),
-				}),
-
-				ComposeAll = React.createElement(StudioComponents.Button, {
-					Size = UDim2.fromScale(1, 1),
-					Text = "Add",
-					Disabled = props.Disabled,
-
-					Icon = {
-						Image = PLUS_ICON.Url,
-						RectSize = PLUS_ICON.ImageRectSize,
-						RectOffset = PLUS_ICON.ImageRectOffset,
-						Size = Vector2.new(PLUS_ICON.ImageRectSize.X, PLUS_ICON.ImageRectSize.Y),
-						UseThemeColor = true,
-					},
-
-					OnActivated = function() end,
-				}),
 			}),
 		}),
 	})

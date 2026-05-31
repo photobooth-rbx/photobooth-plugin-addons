@@ -135,6 +135,7 @@ local function PropertyGroup(props: Props)
 
 				DownButton = React.createElement(StudioComponents.Button, {
 					Size = UDim2.fromOffset(16, 16),
+					Disabled = props.Disabled,
 					LayoutOrder = -1,
 
 					Icon = {
@@ -160,6 +161,7 @@ local function PropertyGroup(props: Props)
 
 				UpButton = React.createElement(StudioComponents.Button, {
 					Size = UDim2.fromOffset(16, 16),
+					Disabled = props.Disabled,
 					LayoutOrder = -3,
 
 					Icon = {

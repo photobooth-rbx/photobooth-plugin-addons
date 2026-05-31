@@ -11,9 +11,9 @@ export type Props = {
 	Disabled: boolean?,
 }
 
-local function OutlineLayer(props: Props)
+local function StrokeLayer(props: Props)
 	return React.createElement(GroupHeader, {
-		GroupName = "Outline",
+		GroupName = "Stroke",
 		LayoutOrder = props.LayoutOrder,
 		Disabled = props.Disabled,
 	}, {
@@ -74,4 +74,4 @@ local function OutlineLayer(props: Props)
 	})
 end
 
-return OutlineLayer
+return StrokeLayer
