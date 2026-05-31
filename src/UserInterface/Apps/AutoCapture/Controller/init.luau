@@ -79,6 +79,47 @@ local function createNewFocus()
 	}
 end
 
+export type StaticState = typeof(createStaticObservableState():get())
+export type StaticObservableState = ObservableValue.ObservableValue<StaticState>
+
+export type DynamicState = typeof(createDynamicObservableState():get())
+export type DynamicObservableState = ObservableValue.ObservableValue<DynamicState>
+
+type Focus = {
+	yaw: number,
+	pitch: number,
+	renderCF: CFrame,
+	dynamicState: DynamicState,
+}
+
+type ModelState = {
+	ticket: number,
+	model: Model,
+	focus: Focus,
+	animationManager: AnimationManager.AnimationManager,
+}
+
+export type AutoCaptureController = typeof(setmetatable(
+	{} :: {
+		captureRect: Rect,
+		paddedRect: Rect,
+
+		staticObservableState: StaticObservableState,
+		dynamicObservableState: DynamicObservableState,
+
+		focusedModel: Model?,
+		focusedModelChanged: Signal.Signal<()>,
+
+		focusShared: Focus,
+		focusTrove: Trove.Trove,
+		stateByModel: { [Model]: ModelState },
+
+		isInputFrozen: boolean,
+		meshDataCache: PointCloud.MeshDataCache,
+	},
+	AutoCaptureControllerClass
+))
+
 function AutoCaptureControllerStatic.new()
 	local self = setmetatable({}, AutoCaptureControllerClass) :: AutoCaptureController
 
@@ -603,46 +644,5 @@ function AutoCaptureControllerClass.Destroy(self: AutoCaptureController)
 end
 
 --
-
-export type StaticState = typeof(createStaticObservableState():get())
-export type StaticObservableState = ObservableValue.ObservableValue<StaticState>
-
-export type DynamicState = typeof(createDynamicObservableState():get())
-export type DynamicObservableState = ObservableValue.ObservableValue<DynamicState>
-
-type Focus = {
-	yaw: number,
-	pitch: number,
-	renderCF: CFrame,
-	dynamicState: DynamicState,
-}
-
-type ModelState = {
-	ticket: number,
-	model: Model,
-	focus: Focus,
-	animationManager: AnimationManager.AnimationManager,
-}
-
-export type AutoCaptureController = typeof(setmetatable(
-	{} :: {
-		captureRect: Rect,
-		paddedRect: Rect,
-
-		staticObservableState: StaticObservableState,
-		dynamicObservableState: DynamicObservableState,
-
-		focusedModel: Model?,
-		focusedModelChanged: Signal.Signal<()>,
-
-		focusShared: Focus,
-		focusTrove: Trove.Trove,
-		stateByModel: { [Model]: ModelState },
-
-		isInputFrozen: boolean,
-		meshDataCache: PointCloud.MeshDataCache,
-	},
-	AutoCaptureControllerClass
-))
 
 return AutoCaptureControllerStatic
