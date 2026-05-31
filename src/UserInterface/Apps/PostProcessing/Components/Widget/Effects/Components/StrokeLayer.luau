@@ -6,13 +6,13 @@ local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
 export type Props = {
-	Layer: Controller.StrokeLayer,
-	UpdateLayer: ((Controller.StrokeLayer) -> Controller.StrokeLayer?) -> (),
+	Effect: Controller.StrokeEffect,
+	UpdateEffect: ((Controller.StrokeEffect) -> Controller.StrokeEffect?) -> (),
 	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 
-local function StrokeLayer(props: Props)
+local function StrokeEffect(props: Props)
 	return React.createElement(React.Fragment, nil, {
 		UIListLayout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
@@ -26,9 +26,9 @@ local function StrokeLayer(props: Props)
 			Step = 1,
 			Min = 0,
 
-			Value = props.Layer.properties.thickness,
+			Value = props.Effect.properties.thickness,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.thickness = newValue
 					layer.renderTicket += 1
 					return layer
@@ -45,9 +45,9 @@ local function StrokeLayer(props: Props)
 			Step = 1,
 			Min = 0,
 
-			Value = props.Layer.properties.softness,
+			Value = props.Effect.properties.softness,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.softness = newValue
 					layer.renderTicket += 1
 					return layer
@@ -64,9 +64,9 @@ local function StrokeLayer(props: Props)
 			Min = 0,
 			Max = 1,
 
-			Value = props.Layer.properties.transparency,
+			Value = props.Effect.properties.transparency,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.transparency = newValue
 					return layer
 				end)
@@ -79,9 +79,9 @@ local function StrokeLayer(props: Props)
 		Color = React.createElement(StudioProperties.Color3, {
 			FieldName = "Color",
 
-			Value = props.Layer.properties.color,
+			Value = props.Effect.properties.color,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.color = newValue
 					return layer
 				end)
@@ -93,4 +93,4 @@ local function StrokeLayer(props: Props)
 	})
 end
 
-return StrokeLayer
+return StrokeEffect

@@ -10,9 +10,12 @@ export type Props = {
 
 	IconSize: UDim2?,
 	Icon: typeof(assert(Lucide.GetAsset("", 16))),
+
 	OnActivated: () -> ()?,
 	OnMouseButton1Down: () -> ()?,
 	OnMouseButton1Up: () -> ()?,
+
+	GetImageColor: ((Enum.StudioStyleGuideModifier) -> Color3)?,
 
 	LayoutOrder: number?,
 	Disabled: boolean?,
@@ -22,6 +25,12 @@ local function LucideIconButton(props: Props)
 	local theme = StudioComponents.useTheme()
 	local isHovering, setIsHovering = React.useState(false)
 	local isSelected, setIsSelected = React.useState(false)
+
+	local modifier = if props.Disabled
+		then Enum.StudioStyleGuideModifier.Disabled
+		elseif isSelected then Enum.StudioStyleGuideModifier.Selected
+		elseif isHovering then Enum.StudioStyleGuideModifier.Hover
+		else Enum.StudioStyleGuideModifier.Default
 
 	local inputObjectRef = React.useRef(nil :: InputObject?)
 	React.useEffect(function()
@@ -84,14 +93,9 @@ local function LucideIconButton(props: Props)
 			Image = props.Icon.Url,
 			ImageRectSize = props.Icon.ImageRectSize,
 			ImageRectOffset = props.Icon.ImageRectOffset,
-			ImageColor3 = theme:GetColor(
-				Enum.StudioStyleGuideColor.MainText,
-				if props.Disabled
-					then Enum.StudioStyleGuideModifier.Disabled
-					elseif isSelected then Enum.StudioStyleGuideModifier.Selected
-					elseif isHovering then Enum.StudioStyleGuideModifier.Hover
-					else Enum.StudioStyleGuideModifier.Default
-			),
+			ImageColor3 = if props.GetImageColor
+				then props.GetImageColor(modifier)
+				else theme:GetColor(Enum.StudioStyleGuideColor.MainText, modifier),
 		}),
 	})
 end

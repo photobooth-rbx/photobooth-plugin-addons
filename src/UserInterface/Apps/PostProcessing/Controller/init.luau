@@ -21,23 +21,29 @@ export type DropShadowProperties = {
 	color: Color3,
 }
 
-type GenericLayer<Kind, Properties> = {
+type GenericEffect<Kind, Properties> = {
 	kind: Kind,
 	name: string,
 	renderTicket: number,
 	properties: Properties,
 }
 
-export type BaseImageLayer = GenericLayer<"Base Image", BaseImageProperties>
-export type StrokeLayer = GenericLayer<"Stroke", StrokeProperties>
-export type DropShadowLayer = GenericLayer<"Drop Shadow", DropShadowProperties>
-export type Layer = BaseImageLayer | StrokeLayer | DropShadowLayer
+export type BaseImageEffect = GenericEffect<"Base Image", BaseImageProperties>
+export type StrokeEffect = GenericEffect<"Stroke", StrokeProperties>
+export type DropShadowEffect = GenericEffect<"Drop Shadow", DropShadowProperties>
+export type Effect = BaseImageEffect | StrokeEffect | DropShadowEffect
+
+export type Layer = {
+	EditImage: EditableImage,
+	TintColor: Color3,
+	Transparency: number,
+}
 
 type Registration<Properties> = {
 	public: boolean,
 	create: () -> Properties,
-	render: (GenericLayer<string, Properties>) -> (),
-	update: (GenericLayer<string, Properties>) -> (),
+	render: (GenericEffect<string, Properties>) -> (),
+	update: (GenericEffect<string, Properties>) -> (),
 }
 
 local registeredKinds = {}
@@ -114,6 +120,7 @@ PostProcessingControllerClass.ClassName = "PostProcessingController"
 
 export type PostProcessingController = typeof(setmetatable(
 	{} :: {
+		observableEffects: ObservableValue.ObservableValue<{ Effect }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 	},
 	PostProcessingControllerClass
@@ -122,40 +129,42 @@ export type PostProcessingController = typeof(setmetatable(
 function PostProcessingControllerStatic.new()
 	local self = setmetatable({}, PostProcessingControllerClass) :: PostProcessingController
 
+	self.observableEffects = ObservableValue.new({})
 	self.observableLayers = ObservableValue.new({})
-	self:createLayer("Base Image", "Image")
+
+	self:createEffect("Base Image", "Image")
 
 	return self
 end
 
 -- Public
 
-function PostProcessingControllerClass.isPublic(self: PostProcessingController, kind: string)
+function PostProcessingControllerClass.isEffectPublic(self: PostProcessingController, kind: string)
 	local entry = assert(registeredByKind[kind])
 	return entry.public
 end
 
-function PostProcessingControllerClass.getPublicKinds(self: PostProcessingController)
+function PostProcessingControllerClass.getPublicEffectKinds(self: PostProcessingController)
 	return registeredPublicKinds
 end
 
-function PostProcessingControllerClass.createLayer(self: PostProcessingController, kind: string, name: string)
+function PostProcessingControllerClass.createEffect(self: PostProcessingController, kind: string, name: string)
 	local entry = assert(registeredByKind[kind])
-	local layer = {
+	local effect = {
 		kind = kind,
 		name = name,
 		renderTicket = 0,
 		properties = entry.create(),
 	}
 
-	self.observableLayers:update()(function(layers)
-		table.insert(layers, layer :: any)
-		return layers
+	self.observableEffects:update()(function(effects)
+		table.insert(effects, effect :: any)
+		return effects
 	end)
 end
 
-function PostProcessingControllerClass.useLayers(self: PostProcessingController)
-	return self.observableLayers:use()
+function PostProcessingControllerClass.useEffects(self: PostProcessingController)
+	return self.observableEffects:use()
 end
 
 function PostProcessingControllerClass.loadImageAsync(self: PostProcessingController, editImage: EditableImage)

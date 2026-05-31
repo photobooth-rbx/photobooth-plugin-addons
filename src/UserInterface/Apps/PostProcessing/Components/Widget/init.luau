@@ -7,6 +7,7 @@ local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
+local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 local Hooks = require(uiRoot.Hooks)
 
 local Effects = require(script.Effects)
@@ -18,6 +19,8 @@ local ACTION_BAR_HEIGHT = 38
 local IMAGE_ICON = assert(Lucide.GetAsset("image", 16))
 local IMAGES_ICON = assert(Lucide.GetAsset("images", 16))
 local PLUS_ICON = assert(Lucide.GetAsset("plus", 16))
+local RIGHT_ICON = assert(Lucide.GetAsset("chevron-right", 16))
+local LEFT_ICON = assert(Lucide.GetAsset("chevron-left", 16))
 
 export type Props = {
 	Disabled: boolean?,
@@ -37,9 +40,46 @@ local function useController()
 	return controller
 end
 
+local function useSelectedEditImages()
+	local selected = Hooks.useSelection()
+	local index, setIndex = React.useState(1)
+
+	local filtered = {}
+	for _, instance in selected do
+		if instance:IsA("MeshPart") then
+			local editImage = instance.TextureContent.Object
+			if editImage and editImage:IsA("EditableImage") then
+				table.insert(filtered, editImage)
+			end
+		end
+	end
+
+	React.useEffect(function()
+		setIndex(1)
+	end, { selected })
+
+	return {
+		images = filtered,
+		count = #filtered,
+		index = index,
+		setIndex = setIndex,
+	}
+end
+
+local function getImageButtonColor(theme: StudioTheme, modifier: Enum.StudioStyleGuideModifier)
+	if modifier == Enum.StudioStyleGuideModifier.Selected then
+		return theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Pressed)
+	elseif modifier == Enum.StudioStyleGuideModifier.Hover then
+		return theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Hover)
+	end
+	return theme:GetColor(Enum.StudioStyleGuideColor.MainText, Enum.StudioStyleGuideModifier.Disabled)
+end
+
 local function Widget(props: Props)
 	local theme = StudioComponents.useTheme()
+
 	local controller = useController()
+	local selected = useSelectedEditImages()
 
 	local isApplying, setIsApplying = React.useState(false)
 	local isDialogOpen, setIsDialogOpen = React.useState(false)
@@ -217,6 +257,57 @@ local function Widget(props: Props)
 						OnActivated = function() end,
 					}),
 				}),
+
+				ImageIndexer = React.createElement("Frame", {
+					BackgroundTransparency = 1,
+					AnchorPoint = Vector2.new(0, 0.5),
+					Position = UDim2.new(0, 8, 0.5, 0),
+					Size = UDim2.fromOffset(16 * 6, 16),
+				}, {
+					LeftButton = React.createElement(LucideIconButton, {
+						AnchorPoint = Vector2.new(0, 0.5),
+						Position = UDim2.new(0, 0, 0.5, 0),
+						Size = UDim2.fromOffset(LEFT_ICON.ImageRectSize.X, LEFT_ICON.ImageRectSize.Y),
+						Disabled = props.Disabled,
+						Icon = LEFT_ICON,
+						GetImageColor = function(modifier)
+							return getImageButtonColor(theme, modifier)
+						end,
+						OnActivated = function()
+							selected.setIndex((((selected.index - 1) - 1) % selected.count) + 1)
+						end,
+					}),
+
+					CountLabel = React.createElement("TextLabel", {
+						BackgroundTransparency = 1,
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = UDim2.fromScale(0.5, 0.5),
+						Size = UDim2.new(1, -40, 1, 0),
+
+						Text = `{math.min(selected.index, selected.count)} / {selected.count}`,
+						TextColor3 = theme:GetColor(
+							Enum.StudioStyleGuideColor.MainText,
+							Enum.StudioStyleGuideModifier.Disabled
+						),
+						TextXAlignment = Enum.TextXAlignment.Center,
+						TextYAlignment = Enum.TextYAlignment.Center,
+						TextTruncate = Enum.TextTruncate.AtEnd,
+					}),
+
+					RightButton = React.createElement(LucideIconButton, {
+						AnchorPoint = Vector2.new(1, 0.5),
+						Position = UDim2.new(1, 0, 0.5, 0),
+						Size = UDim2.fromOffset(RIGHT_ICON.ImageRectSize.X, RIGHT_ICON.ImageRectSize.Y),
+						Disabled = props.Disabled,
+						Icon = RIGHT_ICON,
+						GetImageColor = function(modifier)
+							return getImageButtonColor(theme, modifier)
+						end,
+						OnActivated = function()
+							selected.setIndex((((selected.index + 1) - 1) % selected.count) + 1)
+						end,
+					}),
+				}),
 			}),
 		}),
 
@@ -237,7 +328,7 @@ local function Widget(props: Props)
 
 				OnConfirm = function(name, effectType)
 					setIsDialogOpen(false)
-					controller:createLayer(effectType, name)
+					controller:createEffect(effectType, name)
 				end,
 
 				OnCancel = function()

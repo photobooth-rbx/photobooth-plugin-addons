@@ -6,13 +6,13 @@ local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
 export type Props = {
-	Layer: Controller.BaseImageLayer,
-	UpdateLayer: ((Controller.BaseImageLayer) -> Controller.BaseImageLayer?) -> (),
+	Effect: Controller.BaseImageEffect,
+	UpdateEffect: ((Controller.BaseImageEffect) -> Controller.BaseImageEffect?) -> (),
 	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 
-local function BaseImageLayer(props: Props)
+local function BaseImageEffect(props: Props)
 	return React.createElement(React.Fragment, nil, {
 		UIListLayout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
@@ -26,9 +26,9 @@ local function BaseImageLayer(props: Props)
 			Min = 0,
 			Max = 1,
 
-			Value = props.Layer.properties.transparency,
+			Value = props.Effect.properties.transparency,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.transparency = newValue
 					return layer
 				end)
@@ -41,9 +41,9 @@ local function BaseImageLayer(props: Props)
 		Color = React.createElement(StudioProperties.Color3, {
 			FieldName = "Color",
 
-			Value = props.Layer.properties.color,
+			Value = props.Effect.properties.color,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.color = newValue
 					return layer
 				end)
@@ -55,4 +55,4 @@ local function BaseImageLayer(props: Props)
 	})
 end
 
-return BaseImageLayer
+return BaseImageEffect

@@ -7,9 +7,9 @@ local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
 local GroupHeader = require(script.GroupHeader)
-local BaseImageLayer = require(script.Layers.BaseImageLayer)
-local StrokeLayer = require(script.Layers.StrokeLayer)
-local DropShadowLayer = require(script.Layers.DropShadowLayer)
+local BaseImageEffect = require(script.Components.BaseImageLayer)
+local StrokeEffect = require(script.Components.StrokeLayer)
+local DropShadowEffect = require(script.Components.DropShadowLayer)
 
 local SCROLL_GRADIENT_INSET_HEIGHT = 22
 
@@ -26,58 +26,58 @@ export type Props = {
 }
 
 local function Effects(props: Props)
-	local layers, updateLayers = props.Controller:useLayers()
-	local layerNodes: { [string]: React.ReactNode } = {}
-	for i, layer in layers do
+	local effects, updateEffects = props.Controller:useEffects()
+	local effectNodes: { [string]: React.ReactNode } = {}
+	for i, effect in effects do
 		local component: React.FC<any>
-		if layer.kind == "Base Image" then
-			component = BaseImageLayer
-		elseif layer.kind == "Stroke" then
-			component = StrokeLayer
-		elseif layer.kind == "Drop Shadow" then
-			component = DropShadowLayer
+		if effect.kind == "Base Image" then
+			component = BaseImageEffect
+		elseif effect.kind == "Stroke" then
+			component = StrokeEffect
+		elseif effect.kind == "Drop Shadow" then
+			component = DropShadowEffect
 		end
 
 		if component then
-			local function updateLayer(callback: (Controller.Layer) -> Controller.Layer?)
-				updateLayers(function(layers)
-					local newLayer = callback(layers[i])
-					if newLayer then
-						layers[i] = newLayer
+			local function updateEffect(callback: (Controller.Effect) -> Controller.Effect?)
+				updateEffects(function(effects)
+					local newEffect = callback(effects[i])
+					if newEffect then
+						effects[i] = newEffect
 					else
-						table.remove(layers, i)
+						table.remove(effects, i)
 					end
-					return layers
+					return effects
 				end)
 			end
 
-			layerNodes["Layer" .. i] = React.createElement(GroupHeader, {
-				GroupName = layer.name,
+			effectNodes["Effect" .. i] = React.createElement(GroupHeader, {
+				GroupName = effect.name,
 				LayoutOrder = props.LayoutOrder,
 				Disabled = props.Disabled,
 
-				OnTrashActivated = if props.Controller:isPublic(layer.kind)
+				OnTrashActivated = if props.Controller:isEffectPublic(effect.kind)
 					then function()
-						updateLayer(function(layer)
+						updateEffect(function(layer)
 							return nil
 						end)
 					end
 					else nil,
 
 				OnMoveActivated = function(step)
-					local switchLayer = layers[i + step]
+					local switchLayer = effects[i + step]
 					if switchLayer then
-						updateLayers(function(layers)
-							layers[i] = switchLayer
-							layers[i + step] = layer
-							return layers
+						updateEffects(function(effects)
+							effects[i] = switchLayer
+							effects[i + step] = effect
+							return effects
 						end)
 					end
 				end,
 			}, {
 				React.createElement(component, {
-					Layer = layer,
-					UpdateLayer = updateLayer,
+					Effect = effect,
+					UpdateEffect = updateEffect,
 					LayoutOrder = i,
 					Disabled = props.Disabled,
 				}),
@@ -117,7 +117,7 @@ local function Effects(props: Props)
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
 				}),
-			}, layerNodes),
+			}, effectNodes),
 
 			Padding = React.createElement("Frame", {
 				BackgroundTransparency = 1,

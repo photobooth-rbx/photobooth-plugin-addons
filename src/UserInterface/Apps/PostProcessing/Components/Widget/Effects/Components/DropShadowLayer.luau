@@ -6,13 +6,13 @@ local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
 export type Props = {
-	Layer: Controller.DropShadowLayer,
-	UpdateLayer: ((Controller.DropShadowLayer) -> Controller.DropShadowLayer?) -> (),
+	Effect: Controller.DropShadowEffect,
+	UpdateEffect: ((Controller.DropShadowEffect) -> Controller.DropShadowEffect?) -> (),
 	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 
-local function DropShadowLayer(props: Props)
+local function DropShadowEffect(props: Props)
 	return React.createElement(React.Fragment, nil, {
 		UIListLayout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
@@ -26,9 +26,9 @@ local function DropShadowLayer(props: Props)
 			Min = 0,
 			Max = 1,
 
-			Value = props.Layer.properties.transparency,
+			Value = props.Effect.properties.transparency,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.transparency = newValue
 					return layer
 				end)
@@ -41,9 +41,9 @@ local function DropShadowLayer(props: Props)
 		Color = React.createElement(StudioProperties.Color3, {
 			FieldName = "Color",
 
-			Value = props.Layer.properties.color,
+			Value = props.Effect.properties.color,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.color = newValue
 					return layer
 				end)
@@ -56,9 +56,9 @@ local function DropShadowLayer(props: Props)
 		Offset = React.createElement(StudioProperties.Vector2, {
 			FieldName = "Offset",
 
-			Value = props.Layer.properties.offset,
+			Value = props.Effect.properties.offset,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.offset = newValue
 					layer.renderTicket += 1
 					return layer
@@ -75,9 +75,9 @@ local function DropShadowLayer(props: Props)
 			Step = 1,
 			Min = 0,
 
-			Value = props.Layer.properties.spread,
+			Value = props.Effect.properties.spread,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.spread = newValue
 					layer.renderTicket += 1
 					return layer
@@ -94,9 +94,9 @@ local function DropShadowLayer(props: Props)
 			Step = 1,
 			Min = 0,
 
-			Value = props.Layer.properties.blur,
+			Value = props.Effect.properties.blur,
 			OnValueSubmitted = function(newValue)
-				props.UpdateLayer(function(layer)
+				props.UpdateEffect(function(layer)
 					layer.properties.blur = newValue
 					layer.renderTicket += 1
 					return layer
@@ -109,4 +109,4 @@ local function DropShadowLayer(props: Props)
 	})
 end
 
-return DropShadowLayer
+return DropShadowEffect
