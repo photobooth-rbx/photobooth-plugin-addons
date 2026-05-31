@@ -1,5 +1,6 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
+local Trove = require(pluginRoot.Packages.Trove)
 
 export type BaseImageProperties = {
 	transparency: number,
@@ -120,6 +121,7 @@ PostProcessingControllerClass.ClassName = "PostProcessingController"
 
 export type PostProcessingController = typeof(setmetatable(
 	{} :: {
+		imageTrove: Trove.Trove,
 		observableEffects: ObservableValue.ObservableValue<{ Effect }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 	},
@@ -129,6 +131,7 @@ export type PostProcessingController = typeof(setmetatable(
 function PostProcessingControllerStatic.new()
 	local self = setmetatable({}, PostProcessingControllerClass) :: PostProcessingController
 
+	self.imageTrove = Trove.new()
 	self.observableEffects = ObservableValue.new({})
 	self.observableLayers = ObservableValue.new({})
 
@@ -170,10 +173,21 @@ end
 function PostProcessingControllerClass.loadImageAsync(self: PostProcessingController, editImage: EditableImage)
 	-- load the image in
 	-- render each of the layers
+	self.observableLayers:set({
+		{
+			EditImage = editImage,
+			TintColor = Color3.new(1, 1, 1),
+			Transparency = 0,
+		},
+	})
+
+	self.imageTrove:Add(function()
+		self.observableLayers:set({})
+	end)
 end
 
 function PostProcessingControllerClass.unloadImage(self: PostProcessingController)
-	-- unload the image
+	self.imageTrove:Clean()
 end
 
 function PostProcessingControllerClass.composeImageAsync(self: PostProcessingController, editImage: EditableImage)
@@ -182,7 +196,13 @@ function PostProcessingControllerClass.composeImageAsync(self: PostProcessingCon
 	self:unloadImage()
 end
 
+function PostProcessingControllerClass.useLayers(self: PostProcessingController)
+	return self.observableLayers:use()
+end
+
 function PostProcessingControllerClass.Destroy(self: PostProcessingController)
+	self.imageTrove:Destroy()
+	self.observableEffects:Destroy()
 	self.observableLayers:Destroy()
 end
 

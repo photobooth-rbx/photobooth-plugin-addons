@@ -56,21 +56,22 @@ local function DisplayImage(props: Props)
 	local bottomLabel = React.useRef(nil :: TextLabel?)
 	local bottomLabelTextFits = Hooks.useRefProperty(bottomLabel, "TextFits", true)
 
-	local size = props.Layers[1].EditableImage.Size
-	local aspectRatio = size.X / size.Y
-	local dimensionsText = `{size.X} x {size.Y} - {props.Title}`
-
+	local size = Vector2.zero
 	local layerLabels: { [string]: React.ReactNode } = {}
 	for i, layer in props.Layers do
+		size = size:Max(layer.EditImage.Size)
 		layerLabels["Layer" .. i] = React.createElement("ImageLabel", {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			ImageColor3 = layer.Color,
+			ImageColor3 = layer.TintColor,
 			ImageTransparency = layer.Transparency,
-			ImageContent = Content.fromObject(layer.EditableImage),
+			ImageContent = Content.fromObject(layer.EditImage),
 			ZIndex = i,
 		})
 	end
+
+	local aspectRatio = size.X / size.Y
+	local dimensionsText = `{size.X} x {size.Y} - {props.Title}`
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,

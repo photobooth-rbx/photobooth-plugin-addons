@@ -38,7 +38,7 @@ local function ImageViewer(props: Props)
 
 			Title = props.Title,
 			Layers = props.Layers,
-			IsLoading = nLayers == 1,
+			IsLoading = false,
 		}),
 	})
 end

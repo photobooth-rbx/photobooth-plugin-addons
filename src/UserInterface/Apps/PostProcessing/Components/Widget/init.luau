@@ -81,9 +81,19 @@ local function Widget(props: Props)
 	local controller = useController()
 	local selected = useSelectedEditImages()
 
+	local layers = controller:useLayers()
 	local isApplying, setIsApplying = React.useState(false)
 	local isDialogOpen, setIsDialogOpen = React.useState(false)
 	local disabled = isApplying or isDialogOpen or not not props.Disabled
+
+	React.useEffect(function()
+		local editImage = selected.images[selected.index]
+		if editImage then
+			controller:loadImageAsync(editImage)
+		else
+			controller:unloadImage()
+		end
+	end, { selected.images, selected.index } :: { any })
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -173,7 +183,7 @@ local function Widget(props: Props)
 					ImageViewer = React.createElement(ImageViewer, {
 						Size = UDim2.fromScale(1, 1),
 						Title = "Image",
-						Layers = {},
+						Layers = layers,
 					}),
 				}),
 			}),
