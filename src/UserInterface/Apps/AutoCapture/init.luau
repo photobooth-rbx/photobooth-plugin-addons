@@ -54,14 +54,15 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 	dock.Title = "Photobooth - Auto Capture"
 	dock.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local observableState = Controller.createState()
-	local controller = Controller.new(observableState)
+	local controller = Controller.new()
 
 	local function App()
 		local dockRef = React.useRef(dock)
 		local modelsRef = React.useRef({} :: { [Widget.ListElement]: Model })
 
-		local observedState = observableState:use()
+		local static = controller.staticObservableState:use()
+		local dynamic = controller.dynamicObservableState:use()
+
 		local captureRect, setCaptureRect = React.useState(Rect.new(0, 0, 0, 0))
 		local disabled, setDisabled = React.useState(false)
 		local isEnabled = Hooks.useRefProperty(dockRef, "Enabled", false)
@@ -205,7 +206,7 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 						end
 					end,
 
-					ObservableState = observableState,
+					Controller = controller,
 					CaptureRect = captureRect,
 					Disabled = disabled,
 				}),
@@ -218,22 +219,15 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 						ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 					}, {
 						Core = React.createElement(FitterWindow, {
-							IsFullScreen = observedState.IsFullScreen,
-							Resolution = observedState.CaptureSize,
+							IsFullScreen = dynamic.isFullScreen,
+							Resolution = dynamic.captureSize,
+							AnimationTrack = static.animationTrack,
 
-							PaddingVisible = observedState.FitType ~= "Free" and observedState.PaddingVisible,
-							PaddingTop = if observedState.PaddingUniform
-								then observedState.Padding
-								else observedState.PaddingTop,
-							PaddingBottom = if observedState.PaddingUniform
-								then observedState.Padding
-								else observedState.PaddingBottom,
-							PaddingLeft = if observedState.PaddingUniform
-								then observedState.Padding
-								else observedState.PaddingLeft,
-							PaddingRight = if observedState.PaddingUniform
-								then observedState.Padding
-								else observedState.PaddingRight,
+							PaddingVisible = dynamic.fitType ~= "Free" and dynamic.paddingVisible,
+							PaddingTop = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingTop,
+							PaddingBottom = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingBottom,
+							PaddingLeft = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingLeft,
+							PaddingRight = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingRight,
 
 							OnCaptureRectChanged = function(newRect)
 								controller:setCaptureRect(newRect)
@@ -243,8 +237,6 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 							OnPaddedRectChanged = function(newRect)
 								controller:setPaddedRect(newRect)
 							end,
-
-							AnimationTrack = observedState.AnimationTrack,
 
 							Disabled = disabled,
 						}),

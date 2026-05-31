@@ -9,7 +9,7 @@ export type Props = {
 	AnchorPoint: Vector2?,
 	Position: UDim2?,
 
-	ObservableState: Controller.ObservableState,
+	Controller: Controller.AutoCaptureController,
 	CaptureRect: Rect,
 
 	LayoutOrder: number?,
@@ -17,7 +17,8 @@ export type Props = {
 }
 
 local function Properties(props: Props, ref: any)
-	local observedState = props.ObservableState:use()
+	local static = props.Controller.staticObservableState:use()
+	local dynamic = props.Controller.dynamicObservableState:use()
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -48,10 +49,10 @@ local function Properties(props: Props, ref: any)
 			AlphaBleed = React.createElement(StudioProperties.Boolean, {
 				FieldName = "Alpha Bleed",
 
-				Value = observedState.AlphaBleed,
+				Value = dynamic.alphaBleed,
 				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.AlphaBleed = newValue
+					props.Controller.dynamicObservableState:update()(function(state)
+						state.alphaBleed = newValue
 						return state
 					end)
 				end,
@@ -64,10 +65,10 @@ local function Properties(props: Props, ref: any)
 				FieldName = "Capture Type",
 
 				List = { "NoSkybox", "Unmodified" },
-				Value = observedState.CaptureType,
+				Value = dynamic.captureType,
 				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.CaptureType = newValue
+					props.Controller.dynamicObservableState:update()(function(state)
+						state.captureType = newValue
 						return state
 					end)
 				end,
@@ -77,8 +78,8 @@ local function Properties(props: Props, ref: any)
 			}),
 		}),
 
-		Camera = React.createElement(StudioProperties.PropertyGroup, {
-			GroupName = "Camera",
+		Capture = React.createElement(StudioProperties.PropertyGroup, {
+			GroupName = "Capture",
 			Disabled = props.Disabled,
 			LayoutOrder = 2,
 		}, {
@@ -88,13 +89,28 @@ local function Properties(props: Props, ref: any)
 				Padding = UDim.new(0, 0),
 			}),
 
+			IsSynced = React.createElement(StudioProperties.Boolean, {
+				FieldName = "Synchronized",
+
+				Value = static.isSynced,
+				OnValueSubmitted = function(newValue)
+					props.Controller.staticObservableState:update()(function(state)
+						state.isSynced = newValue
+						return state
+					end)
+				end,
+
+				Disabled = props.Disabled,
+				LayoutOrder = -1,
+			}),
+
 			IsFullScreen = React.createElement(StudioProperties.Boolean, {
 				FieldName = "Fullscreen",
 
-				Value = observedState.IsFullScreen,
+				Value = dynamic.isFullScreen,
 				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.IsFullScreen = newValue
+					props.Controller.dynamicObservableState:update()(function(state)
+						state.isFullScreen = newValue
 						return state
 					end)
 				end,
@@ -106,30 +122,42 @@ local function Properties(props: Props, ref: any)
 			CaptureSize = React.createElement(StudioProperties.Vector2, {
 				FieldName = "Capture Size",
 
-				Value = if observedState.IsFullScreen
+				Value = if dynamic.isFullScreen
 					then Vector2.new(props.CaptureRect.Width, props.CaptureRect.Height)
-					else observedState.CaptureSize,
+					else dynamic.captureSize,
 				OnValueSubmitted = function(newValue)
-					if not observedState.IsFullScreen then
-						props.ObservableState:update()(function(state)
-							state.CaptureSize = newValue
+					if not dynamic.isFullScreen then
+						props.Controller.dynamicObservableState:update()(function(state)
+							state.captureSize = newValue
 							return state
 						end)
 					end
 				end,
 
-				Disabled = if observedState.IsFullScreen then true else props.Disabled,
+				Disabled = if dynamic.isFullScreen then true else props.Disabled,
 				LayoutOrder = 2,
+			}),
+		}),
+
+		Camera = React.createElement(StudioProperties.PropertyGroup, {
+			GroupName = "Camera",
+			Disabled = props.Disabled,
+			LayoutOrder = 3,
+		}, {
+			UIListLayout = React.createElement("UIListLayout", {
+				FillDirection = Enum.FillDirection.Vertical,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, 0),
 			}),
 
 			FitType = React.createElement(StudioProperties.Dropdown, {
 				FieldName = "Fit Type",
 
 				List = { "Orbital", "Point Cloud", "Free" },
-				Value = observedState.FitType,
+				Value = dynamic.fitType,
 				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.FitType = newValue
+					props.Controller.dynamicObservableState:update()(function(state)
+						state.fitType = newValue
 						return state
 					end)
 				end,
@@ -138,15 +166,15 @@ local function Properties(props: Props, ref: any)
 				LayoutOrder = 3,
 			}),
 
-			FitTypeSettings = observedState.FitType ~= "Free" and React.createElement(React.Fragment, nil, {
-				TryUseMeshVertices = observedState.FitType == "Point Cloud"
+			FitTypeSettings = dynamic.fitType ~= "Free" and React.createElement(React.Fragment, nil, {
+				TryUseMeshVertices = dynamic.fitType == "Point Cloud"
 					and React.createElement(StudioProperties.Boolean, {
 						FieldName = "Use Mesh Vertices",
 
-						Value = observedState.TryUseMeshVertices,
+						Value = dynamic.tryUseMeshVertices,
 						OnValueSubmitted = function(newValue)
-							props.ObservableState:update()(function(state)
-								state.TryUseMeshVertices = newValue
+							props.Controller.dynamicObservableState:update()(function(state)
+								state.tryUseMeshVertices = newValue
 								return state
 							end)
 						end,
@@ -159,10 +187,10 @@ local function Properties(props: Props, ref: any)
 					FieldName = "Distance Scale",
 
 					Min = 0,
-					Value = observedState.DistanceScale,
+					Value = dynamic.distanceScale,
 					OnValueSubmitted = function(newValue)
-						props.ObservableState:update()(function(state)
-							state.DistanceScale = newValue
+						props.Controller.dynamicObservableState:update()(function(state)
+							state.distanceScale = newValue
 							return state
 						end)
 					end,
@@ -171,27 +199,12 @@ local function Properties(props: Props, ref: any)
 					LayoutOrder = 5,
 				}),
 			}),
-
-			IsCameraAngleSynced = React.createElement(StudioProperties.Boolean, {
-				FieldName = "Sync Angle",
-
-				Value = observedState.IsCameraAngleSynced,
-				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.IsCameraAngleSynced = newValue
-						return state
-					end)
-				end,
-
-				Disabled = props.Disabled,
-				LayoutOrder = 6,
-			}),
 		}),
 
-		Padding = observedState.FitType ~= "Free" and React.createElement(StudioProperties.PropertyGroup, {
+		Padding = dynamic.fitType ~= "Free" and React.createElement(StudioProperties.PropertyGroup, {
 			GroupName = "Padding",
 			Disabled = props.Disabled,
-			LayoutOrder = 3,
+			LayoutOrder = 4,
 		}, {
 			UIListLayout = React.createElement("UIListLayout", {
 				FillDirection = Enum.FillDirection.Vertical,
@@ -202,10 +215,10 @@ local function Properties(props: Props, ref: any)
 			Visible = React.createElement(StudioProperties.Boolean, {
 				FieldName = "Visible",
 
-				Value = observedState.PaddingVisible,
+				Value = dynamic.paddingVisible,
 				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.PaddingVisible = newValue
+					props.Controller.dynamicObservableState:update()(function(state)
+						state.paddingVisible = newValue
 						return state
 					end)
 				end,
@@ -217,10 +230,10 @@ local function Properties(props: Props, ref: any)
 			Uniform = React.createElement(StudioProperties.Boolean, {
 				FieldName = "Uniform",
 
-				Value = observedState.PaddingUniform,
+				Value = dynamic.paddingUniform,
 				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.PaddingUniform = newValue
+					props.Controller.dynamicObservableState:update()(function(state)
+						state.paddingUniform = newValue
 						return state
 					end)
 				end,
@@ -229,16 +242,16 @@ local function Properties(props: Props, ref: any)
 				LayoutOrder = 2,
 			}),
 
-			UniformAmount = observedState.PaddingUniform and React.createElement(StudioProperties.Number, {
+			UniformAmount = dynamic.paddingUniform and React.createElement(StudioProperties.Number, {
 				FieldName = "Uniform Padding",
 
 				Step = 1,
 				Min = 0,
 
-				Value = observedState.Padding,
+				Value = dynamic.padding,
 				OnValueSubmitted = function(newValue)
-					props.ObservableState:update()(function(state)
-						state.Padding = newValue
+					props.Controller.dynamicObservableState:update()(function(state)
+						state.padding = newValue
 						return state
 					end)
 				end,
@@ -247,17 +260,17 @@ local function Properties(props: Props, ref: any)
 				LayoutOrder = 3,
 			}),
 
-			NonUniformAmounts = not observedState.PaddingUniform and React.createElement(React.Fragment, {}, {
+			NonUniformAmounts = not dynamic.paddingUniform and React.createElement(React.Fragment, {}, {
 				Top = React.createElement(StudioProperties.Number, {
 					FieldName = "Top Padding",
 
 					Step = 1,
 					Min = 0,
 
-					Value = observedState.PaddingTop,
+					Value = dynamic.paddingTop,
 					OnValueSubmitted = function(newValue)
-						props.ObservableState:update()(function(state)
-							state.PaddingTop = newValue
+						props.Controller.dynamicObservableState:update()(function(state)
+							state.paddingTop = newValue
 							return state
 						end)
 					end,
@@ -271,10 +284,10 @@ local function Properties(props: Props, ref: any)
 					Step = 1,
 					Min = 0,
 
-					Value = observedState.PaddingRight,
+					Value = dynamic.paddingRight,
 					OnValueSubmitted = function(newValue)
-						props.ObservableState:update()(function(state)
-							state.PaddingRight = newValue
+						props.Controller.dynamicObservableState:update()(function(state)
+							state.paddingRight = newValue
 							return state
 						end)
 					end,
@@ -288,10 +301,10 @@ local function Properties(props: Props, ref: any)
 					Step = 1,
 					Min = 0,
 
-					Value = observedState.PaddingBottom,
+					Value = dynamic.paddingBottom,
 					OnValueSubmitted = function(newValue)
-						props.ObservableState:update()(function(state)
-							state.PaddingBottom = newValue
+						props.Controller.dynamicObservableState:update()(function(state)
+							state.paddingBottom = newValue
 							return state
 						end)
 					end,
@@ -305,10 +318,10 @@ local function Properties(props: Props, ref: any)
 					Step = 1,
 					Min = 0,
 
-					Value = observedState.PaddingLeft,
+					Value = dynamic.paddingLeft,
 					OnValueSubmitted = function(newValue)
-						props.ObservableState:update()(function(state)
-							state.PaddingLeft = newValue
+						props.Controller.dynamicObservableState:update()(function(state)
+							state.paddingLeft = newValue
 							return state
 						end)
 					end,

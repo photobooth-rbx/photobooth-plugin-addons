@@ -73,4 +73,8 @@ function ObservableValueClass.waitForChange<T>(self: ObservableValue<T>)
 	return self:get()
 end
 
+function ObservableValueClass.Destroy<T>(self: ObservableValue<T>)
+	self.signal:Destroy()
+end
+
 return ObservableValueStatic

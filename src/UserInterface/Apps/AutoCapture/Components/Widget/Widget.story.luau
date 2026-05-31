@@ -5,6 +5,7 @@ local React = require(pluginRoot.Packages.React)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local CreateStory = require(uiRoot.Stories.CreateStory)
+local Hooks = require(uiRoot.Hooks)
 
 local AutoCaptureRoot = script:FindFirstAncestor("AutoCapture")
 local Controller = require(AutoCaptureRoot.Controller)
@@ -14,7 +15,16 @@ local Widget = require(script.Parent)
 local function Component(props: { Size: UDim2 })
 	local theme = StudioComponents.useTheme()
 	local disabled, setDisabled = React.useState(false)
-	local observableState = Controller.createState()
+
+	local controller = Hooks.useConstant(function()
+		return Controller.new()
+	end)
+
+	React.useEffect(function()
+		return function()
+			controller:Destroy()
+		end
+	end, {})
 
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -37,7 +47,7 @@ local function Component(props: { Size: UDim2 })
 			OnListElementAdded = function() end,
 			OnListElementSelected = function() end,
 			OnListElementRemoved = function() end,
-			ObservableState = observableState,
+			Controller = controller,
 			CaptureRect = Rect.new(0, 0, 0, 0),
 			Disabled = disabled,
 		}),
