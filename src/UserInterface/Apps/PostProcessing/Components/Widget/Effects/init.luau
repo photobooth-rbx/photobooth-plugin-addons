@@ -50,31 +50,6 @@ local function Effects(props: Props)
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
 				}),
-
-				Stroke = React.createElement(StrokeLayer, {
-					Disabled = props.Disabled,
-					LayoutOrder = 1,
-				}),
-
-				DropShadow = React.createElement(DropShadowLayer, {
-					Disabled = props.Disabled,
-					LayoutOrder = 2,
-				}),
-
-				DropShadow2 = React.createElement(DropShadowLayer, {
-					Disabled = props.Disabled,
-					LayoutOrder = 3,
-				}),
-
-				DropShadow3 = React.createElement(DropShadowLayer, {
-					Disabled = props.Disabled,
-					LayoutOrder = 4,
-				}),
-
-				DropShadow4 = React.createElement(DropShadowLayer, {
-					Disabled = props.Disabled,
-					LayoutOrder = 5,
-				}),
 			}),
 
 			Padding = React.createElement("Frame", {

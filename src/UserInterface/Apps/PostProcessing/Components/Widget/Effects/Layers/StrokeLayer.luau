@@ -1,19 +1,18 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
-local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 
 local GroupHeader = require(script.Parent.Parent.GroupHeader)
 
 export type Props = {
+	TitleName: string,
 	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 
 local function StrokeLayer(props: Props)
 	return React.createElement(GroupHeader, {
-		GroupName = "Stroke",
+		GroupName = props.TitleName,
 		LayoutOrder = props.LayoutOrder,
 		Disabled = props.Disabled,
 	}, {

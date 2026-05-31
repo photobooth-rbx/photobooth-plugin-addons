@@ -3,9 +3,6 @@ local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 
-local uiRoot = script:FindFirstAncestor("UserInterface")
-local Hooks = require(uiRoot.Hooks)
-
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
