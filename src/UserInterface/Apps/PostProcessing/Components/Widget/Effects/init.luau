@@ -7,6 +7,7 @@ local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
 local GroupHeader = require(script.GroupHeader)
+local BaseImageLayer = require(script.Layers.BaseImageLayer)
 local StrokeLayer = require(script.Layers.StrokeLayer)
 local DropShadowLayer = require(script.Layers.DropShadowLayer)
 
@@ -25,12 +26,13 @@ export type Props = {
 }
 
 local function Effects(props: Props)
-	local layers, updateLayers = props.Controller:use()
-
+	local layers, updateLayers = props.Controller:useLayers()
 	local layerNodes: { [string]: React.ReactNode } = {}
 	for i, layer in layers do
 		local component: React.FC<any>
-		if layer.kind == "Stroke" then
+		if layer.kind == "Base Image" then
+			component = BaseImageLayer
+		elseif layer.kind == "Stroke" then
 			component = StrokeLayer
 		elseif layer.kind == "Drop Shadow" then
 			component = DropShadowLayer
@@ -54,11 +56,13 @@ local function Effects(props: Props)
 				LayoutOrder = props.LayoutOrder,
 				Disabled = props.Disabled,
 
-				OnTrashActivated = function()
-					updateLayer(function(layer)
-						return nil
-					end)
-				end,
+				OnTrashActivated = if props.Controller:isPublic(layer.kind)
+					then function()
+						updateLayer(function(layer)
+							return nil
+						end)
+					end
+					else nil,
 
 				OnMoveActivated = function(step)
 					local switchLayer = layers[i + step]

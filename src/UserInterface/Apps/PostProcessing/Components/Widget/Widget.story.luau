@@ -10,7 +10,7 @@ local Widget = require(script.Parent)
 
 local function Component(props: { Size: UDim2 })
 	local theme = StudioComponents.useTheme()
-	local disabled, setDisabled = React.useState(false)
+	local disabled, _setDisabled = React.useState(false)
 
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),

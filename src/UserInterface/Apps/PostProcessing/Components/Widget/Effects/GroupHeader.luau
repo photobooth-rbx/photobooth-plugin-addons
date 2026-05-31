@@ -185,7 +185,7 @@ local function PropertyGroup(props: Props)
 					LayoutOrder = -4,
 				}),
 
-				TrashButton = React.createElement(LucideIconButton, {
+				TrashButton = props.OnTrashActivated and React.createElement(LucideIconButton, {
 					AnchorPoint = Vector2.new(0, 0.5),
 					Position = UDim2.new(0, 0, 0.5, 0),
 					Size = UDim2.fromOffset(24, 24),
@@ -194,9 +194,7 @@ local function PropertyGroup(props: Props)
 					Disabled = props.Disabled,
 					LayoutOrder = -5,
 					OnActivated = function()
-						if props.OnTrashActivated then
-							props.OnTrashActivated()
-						end
+						props.OnTrashActivated()
 					end,
 				}),
 			}),

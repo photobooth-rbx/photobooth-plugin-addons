@@ -185,8 +185,8 @@ export type Props = {
 
 local function EffectDialog(props: Props)
 	local theme = StudioComponents.useTheme()
-	local effectType, setEffectType = React.useState(props.Controller:getKinds()[1])
-	local name, setName = React.useState(effectType .. " Layer")
+	local effectType, setEffectType = React.useState(props.Controller:getPublicKinds()[1])
+	local name, setName = React.useState(effectType)
 
 	return React.createElement("Frame", {
 		BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground),
@@ -237,11 +237,11 @@ local function EffectDialog(props: Props)
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.new(1, 0, 0, 22),
 				FieldName = "Type",
-				List = props.Controller:getKinds(),
+				List = props.Controller:getPublicKinds(),
 				Value = effectType,
 				OnValueSubmitted = function(newPick)
 					setEffectType(newPick)
-					setName(newPick .. " Layer")
+					setName(newPick)
 				end,
 			}, {
 				Input = React.createElement(StudioProperties.StringBox, {
