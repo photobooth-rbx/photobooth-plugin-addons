@@ -3,6 +3,9 @@ local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
 local React = require(pluginRoot.Packages.React)
 
+local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
+local Controller = require(postProcessingRoot.Controller)
+
 type TextInputProps = {
 	AnchorPoint: Vector2?,
 	Position: UDim2?,
@@ -170,6 +173,8 @@ export type Props = {
 	Position: UDim2?,
 	Size: UDim2?,
 
+	Controller: Controller.PostProcessingController,
+
 	OnConfirm: (string, string) -> ()?,
 	OnCancel: () -> ()?,
 
@@ -180,7 +185,7 @@ export type Props = {
 
 local function EffectDialog(props: Props)
 	local theme = StudioComponents.useTheme()
-	local effectType, setEffectType = React.useState("Stroke")
+	local effectType, setEffectType = React.useState(props.Controller:getKinds()[1])
 	local name, setName = React.useState(effectType .. " Layer")
 
 	return React.createElement("Frame", {
@@ -232,7 +237,7 @@ local function EffectDialog(props: Props)
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.new(1, 0, 0, 22),
 				FieldName = "Type",
-				List = { "Stroke", "Drop Shadow" },
+				List = props.Controller:getKinds(),
 				Value = effectType,
 				OnValueSubmitted = function(newPick)
 					setEffectType(newPick)

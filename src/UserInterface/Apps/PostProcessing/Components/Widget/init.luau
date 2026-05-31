@@ -6,6 +6,9 @@ local React = require(pluginRoot.Packages.React)
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 
+local uiRoot = script:FindFirstAncestor("UserInterface")
+local Hooks = require(uiRoot.Hooks)
+
 local Effects = require(script.Effects)
 local ImageViewer = require(script.ImageViewer)
 local EffectDialog = require(script.EffectDialog)
@@ -20,8 +23,24 @@ export type Props = {
 	Disabled: boolean?,
 }
 
+local function useController()
+	local controller = Hooks.useConstant(function()
+		return Controller.new()
+	end)
+
+	React.useEffect(function()
+		return function()
+			controller:Destroy()
+		end
+	end, {})
+
+	return controller
+end
+
 local function Widget(props: Props)
 	local theme = StudioComponents.useTheme()
+	local controller = useController()
+
 	local isApplying, setIsApplying = React.useState(false)
 	local isDialogOpen, setIsDialogOpen = React.useState(false)
 	local disabled = isApplying or isDialogOpen or not not props.Disabled
@@ -59,6 +78,7 @@ local function Widget(props: Props)
 
 						Effects = React.createElement(Effects, {
 							Size = UDim2.fromScale(1, 1),
+							Controller = controller,
 							Disabled = disabled,
 						}),
 					}),
@@ -213,8 +233,11 @@ local function Widget(props: Props)
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromOffset(220, 120),
 
+				Controller = controller,
+
 				OnConfirm = function(name, effectType)
 					setIsDialogOpen(false)
+					controller:createLayer(effectType, name)
 				end,
 
 				OnCancel = function()

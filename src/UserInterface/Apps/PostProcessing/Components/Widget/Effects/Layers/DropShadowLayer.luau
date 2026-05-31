@@ -2,20 +2,18 @@ local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
 local React = require(pluginRoot.Packages.React)
 
-local GroupHeader = require(script.Parent.Parent.GroupHeader)
+local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
+local Controller = require(postProcessingRoot.Controller)
 
 export type Props = {
-	TitleName: string,
+	Layer: Controller.DropShadowLayer,
+	UpdateLayer: ((Controller.DropShadowLayer) -> Controller.DropShadowLayer?) -> (),
 	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 
 local function DropShadowLayer(props: Props)
-	return React.createElement(GroupHeader, {
-		GroupName = props.TitleName,
-		LayoutOrder = props.LayoutOrder,
-		Disabled = props.Disabled,
-	}, {
+	return React.createElement(React.Fragment, nil, {
 		UIListLayout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
@@ -28,8 +26,13 @@ local function DropShadowLayer(props: Props)
 			Min = 0,
 			Max = 1,
 
-			Value = 0,
-			OnValueSubmitted = function(newValue) end,
+			Value = props.Layer.properties.transparency,
+			OnValueSubmitted = function(newValue)
+				props.UpdateLayer(function(layer)
+					layer.properties.transparency = newValue
+					return layer
+				end)
+			end,
 
 			Disabled = props.Disabled,
 			LayoutOrder = 1,
@@ -38,8 +41,13 @@ local function DropShadowLayer(props: Props)
 		Color = React.createElement(StudioProperties.Color3, {
 			FieldName = "Color",
 
-			Value = Color3.new(0, 0, 0),
-			OnValueSubmitted = function(newValue) end,
+			Value = props.Layer.properties.color,
+			OnValueSubmitted = function(newValue)
+				props.UpdateLayer(function(layer)
+					layer.properties.color = newValue
+					return layer
+				end)
+			end,
 
 			Disabled = props.Disabled,
 			LayoutOrder = 2,
@@ -48,8 +56,14 @@ local function DropShadowLayer(props: Props)
 		Offset = React.createElement(StudioProperties.Vector2, {
 			FieldName = "Offset",
 
-			Value = Vector2.zero,
-			OnValueSubmitted = function(newValue) end,
+			Value = props.Layer.properties.offset,
+			OnValueSubmitted = function(newValue)
+				props.UpdateLayer(function(layer)
+					layer.properties.offset = newValue
+					layer.renderTicket += 1
+					return layer
+				end)
+			end,
 
 			Disabled = props.Disabled,
 			LayoutOrder = 3,
@@ -60,8 +74,15 @@ local function DropShadowLayer(props: Props)
 
 			Step = 1,
 			Min = 0,
-			Value = 1,
-			OnValueSubmitted = function(newValue) end,
+
+			Value = props.Layer.properties.spread,
+			OnValueSubmitted = function(newValue)
+				props.UpdateLayer(function(layer)
+					layer.properties.spread = newValue
+					layer.renderTicket += 1
+					return layer
+				end)
+			end,
 
 			Disabled = props.Disabled,
 			LayoutOrder = 4,
@@ -72,8 +93,15 @@ local function DropShadowLayer(props: Props)
 
 			Step = 1,
 			Min = 0,
-			Value = 1,
-			OnValueSubmitted = function(newValue) end,
+
+			Value = props.Layer.properties.blur,
+			OnValueSubmitted = function(newValue)
+				props.UpdateLayer(function(layer)
+					layer.properties.blur = newValue
+					layer.renderTicket += 1
+					return layer
+				end)
+			end,
 
 			Disabled = props.Disabled,
 			LayoutOrder = 5,

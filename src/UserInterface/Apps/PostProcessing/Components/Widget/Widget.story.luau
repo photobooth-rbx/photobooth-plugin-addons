@@ -6,12 +6,6 @@ local React = require(pluginRoot.Packages.React)
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local CreateStory = require(uiRoot.Stories.CreateStory)
 
-local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
-local Controller = require(postProcessingRoot.Controller)
-
-local observableRenderState = Controller.createRenderState()
-local observableNonRenderState = Controller.createNonRenderState()
-
 local Widget = require(script.Parent)
 
 local function Component(props: { Size: UDim2 })
@@ -26,8 +20,6 @@ local function Component(props: { Size: UDim2 })
 		BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 	}, {
 		Core = React.createElement(Widget, {
-			ObservableRenderState = observableRenderState,
-			ObservableNonRenderState = observableNonRenderState,
 			Disabled = disabled,
 		}),
 	})

@@ -61,7 +61,9 @@ function ObservableValueClass.use<T>(self: ObservableValue<T>)
 		end
 	end, {})
 
-	return valueRef.current, state
+	return valueRef.current, React.useCallback(function(callback: (T) -> T)
+		self:update()(callback)
+	end, { state })
 end
 
 function ObservableValueClass.onChanged<T>(self: ObservableValue<T>, callback: () -> ())
