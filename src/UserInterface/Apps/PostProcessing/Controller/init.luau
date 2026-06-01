@@ -87,7 +87,9 @@ registerKind("Base Image", {
 		}
 		return properties
 	end,
-	render = function(inputs, properties) end,
+	render = function(inputs, properties)
+		-- do nothing!
+	end,
 })
 
 registerKind("Stroke", {
