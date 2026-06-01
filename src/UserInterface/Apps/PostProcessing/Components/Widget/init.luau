@@ -92,7 +92,9 @@ local function Widget(props: Props)
 	React.useEffect(function()
 		local editImage = selected.images[selected.index]
 		if editImage then
-			controller:loadImage(editImage)
+			task.spawn(function()
+				controller:loadImageAsync(editImage)
+			end)
 		else
 			controller:unloadImage()
 		end

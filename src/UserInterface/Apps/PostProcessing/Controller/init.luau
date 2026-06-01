@@ -1,7 +1,12 @@
 local AssetService = game:GetService("AssetService")
+
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
+local Future = require(pluginRoot.Packages.Future)
+local Signal = require(pluginRoot.Packages.Signal)
 local Trove = require(pluginRoot.Packages.Trove)
+
+local SignedVectorField = require(script.SignedVectorField)
 
 export type BaseImageProperties = {
 	transparency: number,
@@ -189,7 +194,7 @@ function PostProcessingControllerClass.useEffects(self: PostProcessingController
 	return self.observableEffects:use()
 end
 
-function PostProcessingControllerClass.loadImage(self: PostProcessingController, editImage: EditableImage)
+function PostProcessingControllerClass.loadImageAsync(self: PostProcessingController, editImage: EditableImage)
 	if self.editImage == editImage then
 		return
 	end
@@ -197,79 +202,120 @@ function PostProcessingControllerClass.loadImage(self: PostProcessingController,
 	self:unloadImage()
 	self.editImage = editImage
 
-	local function watchEffect(observedEffect: ObservableValue.ObservableValue<Effect>)
-		local effect = observedEffect:get()
-		local effectEntry = registeredByKind[effect.kind]
+	local isImageLoaded = Future.new()
 
-		local layer: Layer = {
-			EditImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
-			TintColor = effect.properties.color,
-			Transparency = effect.properties.transparency,
-		}
+	self.imageTrove:Add(function()
+		if not isImageLoaded:isCompleted() then
+			isImageLoaded:complete()
+		end
+	end)
 
-		local inputs = {
-			base = editImage,
-			svf = editImage,
-			output = layer.EditImage,
-		}
-
-		local watchTrove = Trove.new()
-		local asyncTrove = Trove.new()
-
-		local renderTicket = effect.renderTicket
-		watchTrove:Add(observedEffect:onChanged(function()
-			asyncTrove:Clean()
-			asyncTrove:Add(task.spawn(function()
-				local newRenderTicket = effect.renderTicket
-				if newRenderTicket ~= renderTicket then
-					renderTicket = newRenderTicket
-					effectEntry.render(inputs, effect.properties :: any)
-				end
-
-				layer.TintColor = effect.properties.color
-				layer.Transparency = effect.properties.transparency
-
-				self.observableLayers:update()(function(layers)
-					layers[effect.index] = layer
-					return layers
-				end)
-			end))
-		end))
-
-		asyncTrove:Add(task.spawn(function()
-			effectEntry.render(inputs, effect.properties :: any)
-		end))
-
-		self.observableLayers:update()(function(layers)
-			layers[effect.index] = layer
-			return layers
+	self.imageTrove:Add(task.spawn(function()
+		local svfEdit = SignedVectorField.generateAsync(Content.fromObject(editImage))
+		self.imageTrove:Add(function()
+			svfEdit:Destroy()
 		end)
 
-		return function()
-			watchTrove:Destroy()
-			asyncTrove:Destroy()
-			layer.EditImage:Destroy()
+		local function watchEffect(observedEffect: ObservableValue.ObservableValue<Effect>)
+			local renderReady = Future.new()
+
+			local effect = observedEffect:get()
+			local effectEntry = registeredByKind[effect.kind]
+
+			local layer: Layer = {
+				EditImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
+				TintColor = effect.properties.color,
+				Transparency = effect.properties.transparency,
+			}
+
+			local inputs = {
+				base = editImage,
+				svf = svfEdit,
+				output = layer.EditImage,
+			}
+
+			local watchTrove = Trove.new()
+			local asyncTrove = Trove.new()
+
+			local renderTicket = effect.renderTicket
+			watchTrove:Add(observedEffect:onChanged(function()
+				asyncTrove:Clean()
+				asyncTrove:Add(task.spawn(function()
+					local newRenderTicket = effect.renderTicket
+					if newRenderTicket ~= renderTicket then
+						renderTicket = newRenderTicket
+						effectEntry.render(inputs, effect.properties :: any)
+						if not renderReady:isCompleted() then
+							renderReady:complete()
+						end
+					end
+
+					layer.TintColor = effect.properties.color
+					layer.Transparency = effect.properties.transparency
+
+					self.observableLayers:update()(function(layers)
+						layers[effect.index] = layer
+						return layers
+					end)
+				end))
+			end))
+
+			asyncTrove:Add(task.spawn(function()
+				effectEntry.render(inputs, effect.properties :: any)
+				if not renderReady:isCompleted() then
+					renderReady:complete()
+				end
+			end))
+
+			self.observableLayers:update()(function(layers)
+				layers[effect.index] = layer
+				return layers
+			end)
+
+			local function cleanup()
+				watchTrove:Destroy()
+				asyncTrove:Destroy()
+				layer.EditImage:Destroy()
+				if not renderReady:isCompleted() then
+					renderReady:complete()
+				end
+			end
+
+			return renderReady, cleanup
 		end
-	end
 
-	local watching = {}
-	for _, observedEffect in self.observableEffects:get() do
-		watching[observedEffect] = watchEffect(observedEffect :: any)
-	end
-
-	self.imageTrove:Add(self.observableEffects:onChanged(function()
-		local newWatching = {}
+		local watching = {}
 		for _, observedEffect in self.observableEffects:get() do
-			newWatching[observedEffect] = watching[observedEffect] or watchEffect(observedEffect :: any)
-			watching[observedEffect] = nil
+			local renderReady, cleanup = watchEffect(observedEffect :: any)
+			watching[observedEffect] = cleanup
+			renderReady:expect()
 		end
 
-		for observableEffect, cleanup in watching do
-			cleanup()
-		end
+		self.imageTrove:Add(self.observableEffects:onChanged(function()
+			local newWatching = {}
+			for _, observedEffect in self.observableEffects:get() do
+				if watching[observedEffect] then
+					newWatching[observedEffect] = watching[observedEffect]
+				else
+					local _renderReady, cleanup = watchEffect(observedEffect :: any)
+					newWatching[observedEffect] = cleanup
+				end
+				watching[observedEffect] = nil
+			end
 
-		watching = newWatching
+			for observableEffect, cleanup in watching do
+				cleanup()
+			end
+
+			watching = newWatching
+		end))
+
+		if not isImageLoaded:isCompleted() then
+			isImageLoaded:complete()
+		end
 	end))
+
+	return isImageLoaded:expect()
 end
 
 function PostProcessingControllerClass.unloadImage(self: PostProcessingController)
@@ -278,7 +324,7 @@ function PostProcessingControllerClass.unloadImage(self: PostProcessingControlle
 end
 
 function PostProcessingControllerClass.composeImageAsync(self: PostProcessingController, editImage: EditableImage)
-	self:loadImage(editImage)
+	self:loadImageAsync(editImage)
 	-- compose
 	self:unloadImage()
 end
