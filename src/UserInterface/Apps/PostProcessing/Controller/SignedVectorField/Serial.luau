@@ -26,9 +26,9 @@ local function plantSeeds(img: EditableImage)
 
 			local alpha = buffer.readu8(imgBuffer, j + 3)
 			if alpha > 0 then
-				buffer.writei32(seedBuffer, i, i)
+				buffer.writei32(seedBuffer, j, i)
 			else
-				buffer.writei32(seedBuffer, i, -i)
+				buffer.writei32(seedBuffer, j, -i)
 			end
 		end
 	end
@@ -58,6 +58,8 @@ local function jfa(voronoi: EditableImage, seedbed: buffer)
 	end
 
 	for _, step in passSteps do
+		buffer.fill(seedsWrite, 0, 0)
+
 		for y = 1, imgHeight do
 			for x = 1, imgWidth do
 				tryYield()
@@ -93,7 +95,7 @@ local function jfa(voronoi: EditableImage, seedbed: buffer)
 						end
 
 						local nx = x + ox * step
-						if nx < 1 or nx > imgHeight then
+						if nx < 1 or nx > imgWidth then
 							continue
 						end
 
@@ -116,7 +118,7 @@ local function jfa(voronoi: EditableImage, seedbed: buffer)
 							local distSq = (snx - x) ^ 2 + (sny - y) ^ 2
 							if distSq < closestDistSq then
 								closestDistSq = distSq
-								closestSeed = nSeed
+								closestSeed = pixelIndex
 							end
 						end
 					end
@@ -128,7 +130,7 @@ local function jfa(voronoi: EditableImage, seedbed: buffer)
 			end
 		end
 
-		seedsRead = seedsWrite
+		seedsRead, seedsWrite = seedsWrite, seedsRead
 	end
 
 	return seedsRead
