@@ -66,7 +66,7 @@ local function DisplayImage(props: Props)
 			ImageColor3 = layer.TintColor,
 			ImageTransparency = layer.Transparency,
 			ImageContent = Content.fromObject(layer.EditImage),
-			ZIndex = i,
+			ZIndex = -i,
 		})
 	end
 

@@ -2,7 +2,10 @@
 
 local AssetService = game:GetService("AssetService")
 
+local PLUS_ONE = true
 local ACTOR_COUNT = 32
+
+script:SetAttribute("PlusOne", PLUS_ONE)
 script:SetAttribute("ActorCount", ACTOR_COUNT)
 
 local PlantSeeds = require(script.PlantSeeds)

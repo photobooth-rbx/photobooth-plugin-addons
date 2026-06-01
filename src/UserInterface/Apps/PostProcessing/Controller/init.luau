@@ -78,6 +78,14 @@ local function registerKind<Properties>(kind: string, registration: Registration
 	}
 end
 
+local function smoothStep(edge0: number, edge1: number, x: number)
+	if edge1 <= edge0 then
+		return if x <= edge0 then 0 else 1
+	end
+	local t = math.clamp((x - edge0) / (edge1 - edge0), 0, 1)
+	return t * t * (3.0 - 2.0 * t)
+end
+
 registerKind("Base Image", {
 	public = false,
 	create = function()
@@ -103,7 +111,47 @@ registerKind("Stroke", {
 		}
 		return properties
 	end,
-	render = function(inputs, properties) end,
+	render = function(inputs, properties)
+		local imgSize = inputs.output.Size
+		local imgWidth, imgHeight = imgSize.X, imgSize.Y
+		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
+		local output = buffer.create(imgWidth * imgHeight * 4)
+
+		for y = 1, imgHeight do
+			for x = 1, imgWidth do
+				local i = x + (y - 1) * imgWidth
+				local j = (i - 1) * 4
+
+				local signedPixelIndex = buffer.readi32(svf, j)
+				local pixelIndex = math.abs(signedPixelIndex)
+				local sign = math.sign(signedPixelIndex)
+
+				local ny = math.floor((pixelIndex - 1) / imgWidth) + 1
+				local nx = pixelIndex - (ny - 1) * imgWidth
+
+				local distanceSq = (nx - x) ^ 2 + (ny - y) ^ 2
+				local distance = math.sqrt(distanceSq)
+				local signedDistance = distance * sign
+
+				local strokeAlpha = 0
+				if properties.thickness > 0 then
+					strokeAlpha = 1
+						- smoothStep(
+							properties.thickness - properties.softness,
+							properties.thickness + properties.softness,
+							signedDistance
+						)
+				end
+
+				buffer.writeu8(output, j + 0, 255)
+				buffer.writeu8(output, j + 1, 255)
+				buffer.writeu8(output, j + 2, 255)
+				buffer.writeu8(output, j + 3, 255 * strokeAlpha)
+			end
+		end
+
+		inputs.output:WritePixelsBuffer(Vector2.zero, imgSize, output)
+	end,
 })
 
 registerKind("Drop Shadow", {
