@@ -59,11 +59,12 @@ function ObservableValueClass.use<T>(self: ObservableValue<T>)
 		return function()
 			connection:Disconnect()
 		end
-	end, {})
+	end, { self })
 
-	return valueRef.current, React.useCallback(function(callback: (T) -> T)
-		self:update()(callback)
-	end, { state })
+	return valueRef.current,
+		React.useCallback(function(callback: (T) -> T)
+			self:update()(callback)
+		end, { self, state } :: { any })
 end
 
 function ObservableValueClass.onChanged<T>(self: ObservableValue<T>, callback: () -> ())

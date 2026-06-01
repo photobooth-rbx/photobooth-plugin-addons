@@ -44,15 +44,18 @@ local function useSelectedEditImages()
 	local selected = Hooks.useSelection()
 	local index, setIndex = React.useState(1)
 
-	local filtered = {}
-	for _, instance in selected do
-		if instance:IsA("MeshPart") then
-			local editImage = instance.TextureContent.Object
-			if editImage and editImage:IsA("EditableImage") then
-				table.insert(filtered, editImage)
+	local filtered = React.useMemo(function()
+		local editImages = {}
+		for _, instance in selected do
+			if instance:IsA("MeshPart") then
+				local editImage = instance.TextureContent.Object
+				if editImage and editImage:IsA("EditableImage") then
+					table.insert(editImages, editImage)
+				end
 			end
 		end
-	end
+		return editImages
+	end, {})
 
 	React.useEffect(function()
 		setIndex(1)

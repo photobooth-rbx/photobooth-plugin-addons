@@ -8,7 +8,6 @@ local Controller = require(postProcessingRoot.Controller)
 export type Props = {
 	Effect: Controller.BaseImageEffect,
 	UpdateEffect: ((Controller.BaseImageEffect) -> Controller.BaseImageEffect?) -> (),
-	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 

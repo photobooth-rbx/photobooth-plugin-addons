@@ -1,5 +1,7 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 
+local ObservableValue = require(ReplicatedStorage.PluginRoot.Utilities.ObservableValue)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
 local React = require(pluginRoot.Packages.React)
 
@@ -25,64 +27,85 @@ export type Props = {
 	Disabled: boolean?,
 }
 
-local function Effects(props: Props)
-	local effects, updateEffects = props.Controller:useEffects()
-	local effectNodes: { [string]: React.ReactNode } = {}
-	for i, effect in effects do
-		local component: React.FC<any>
-		if effect.kind == "Base Image" then
-			component = BaseImageEffect
-		elseif effect.kind == "Stroke" then
-			component = StrokeEffect
-		elseif effect.kind == "Drop Shadow" then
-			component = DropShadowEffect
-		end
+type EffectProps = {
+	Controller: Controller.PostProcessingController,
+	ObservableEffect: ObservableValue.ObservableValue<Controller.Effect>,
+	LayoutOrder: number,
+	Disabled: boolean?,
+}
 
-		if component then
-			local function updateEffect(callback: (Controller.Effect) -> Controller.Effect?)
-				updateEffects(function(effects)
-					local newEffect = callback(effects[i])
-					if newEffect then
-						effects[i] = newEffect
-					else
-						table.remove(effects, i)
-					end
+local function EffectComponent(props: EffectProps)
+	local effect, updateEffect = props.ObservableEffect:use()
+	local isPublicEffect = props.Controller:isEffectPublic(effect.kind)
+
+	local component: React.FC<any>
+	if effect.kind == "Base Image" then
+		component = BaseImageEffect
+	elseif effect.kind == "Stroke" then
+		component = StrokeEffect
+	elseif effect.kind == "Drop Shadow" then
+		component = DropShadowEffect
+	end
+
+	return React.createElement(GroupHeader, {
+		GroupName = effect.name,
+		LayoutOrder = props.LayoutOrder,
+		Disabled = props.Disabled,
+
+		OnTrashActivated = if isPublicEffect
+			then function()
+				props.Controller.observableEffects:update()(function(effects)
+					table.remove(effects, props.LayoutOrder)
 					return effects
 				end)
 			end
+			else nil,
 
-			effectNodes["Effect" .. i] = React.createElement(GroupHeader, {
-				GroupName = effect.name,
-				LayoutOrder = props.LayoutOrder,
-				Disabled = props.Disabled,
+		OnMoveActivated = function(step)
+			local i = props.LayoutOrder
+			local j = i + step
+			if props.Controller.observableEffects:get()[j] then
+				props.Controller.observableEffects:update()(function(effects)
+					local observedEffectA = effects[i]
+					local observedEffectB = effects[j]
 
-				OnTrashActivated = if props.Controller:isEffectPublic(effect.kind)
-					then function()
-						updateEffect(function(layer)
-							return nil
-						end)
-					end
-					else nil,
+					observedEffectA:update()(function(effectA: any)
+						effectA.index = j
+						return effectA
+					end)
 
-				OnMoveActivated = function(step)
-					local switchLayer = effects[i + step]
-					if switchLayer then
-						updateEffects(function(effects)
-							effects[i] = switchLayer
-							effects[i + step] = effect
-							return effects
-						end)
-					end
-				end,
-			}, {
-				React.createElement(component, {
-					Effect = effect,
-					UpdateEffect = updateEffect,
-					LayoutOrder = i,
-					Disabled = props.Disabled,
-				}),
-			})
-		end
+					observedEffectB:update()(function(effectB: any)
+						effectB.index = i
+						return effectB
+					end)
+
+					effects[i] = observedEffectB
+					effects[j] = observedEffectA
+
+					return effects
+				end)
+			end
+		end,
+	}, {
+		React.createElement(component, {
+			Effect = effect,
+			UpdateEffect = updateEffect,
+			Disabled = props.Disabled,
+		}),
+	})
+end
+
+local function Effects(props: Props)
+	local observableEffects = props.Controller:useEffects()
+
+	local effectNodes: { [string]: React.ReactNode } = {}
+	for i, observableEffect in observableEffects do
+		effectNodes["Effect" .. i] = React.createElement(EffectComponent, {
+			Controller = props.Controller,
+			ObservableEffect = observableEffect :: any,
+			LayoutOrder = i,
+			Disabled = props.Disabled,
+		})
 	end
 
 	return React.createElement("Frame", {

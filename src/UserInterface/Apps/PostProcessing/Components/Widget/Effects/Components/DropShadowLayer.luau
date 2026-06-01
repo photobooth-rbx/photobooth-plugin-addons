@@ -8,7 +8,6 @@ local Controller = require(postProcessingRoot.Controller)
 export type Props = {
 	Effect: Controller.DropShadowEffect,
 	UpdateEffect: ((Controller.DropShadowEffect) -> Controller.DropShadowEffect?) -> (),
-	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 

@@ -1,3 +1,4 @@
+local AssetService = game:GetService("AssetService")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Trove = require(pluginRoot.Packages.Trove)
@@ -25,6 +26,7 @@ export type DropShadowProperties = {
 type GenericEffect<Kind, Properties> = {
 	kind: Kind,
 	name: string,
+	index: number,
 	renderTicket: number,
 	properties: Properties,
 }
@@ -43,8 +45,7 @@ export type Layer = {
 type Registration<Properties> = {
 	public: boolean,
 	create: () -> Properties,
-	render: (GenericEffect<string, Properties>) -> (),
-	update: (GenericEffect<string, Properties>) -> (),
+	render: (EditableImage, Properties) -> EditableImage,
 }
 
 local registeredKinds = {}
@@ -63,7 +64,6 @@ local function registerKind<Properties>(kind: string, registration: Registration
 		public = registration.public,
 		create = registration.create,
 		render = registration.render,
-		update = registration.update,
 	}
 end
 
@@ -72,12 +72,13 @@ registerKind("Base Image", {
 	create = function()
 		local properties: BaseImageProperties = {
 			transparency = 0,
-			color = Color3.new(0, 0, 0),
+			color = Color3.new(1, 1, 1),
 		}
 		return properties
 	end,
-	render = function() end,
-	update = function() end,
+	render = function(baseImage, properties)
+		return baseImage
+	end,
 })
 
 registerKind("Stroke", {
@@ -91,8 +92,9 @@ registerKind("Stroke", {
 		}
 		return properties
 	end,
-	render = function() end,
-	update = function() end,
+	render = function(baseImage, properties)
+		return baseImage
+	end,
 })
 
 registerKind("Drop Shadow", {
@@ -107,8 +109,9 @@ registerKind("Drop Shadow", {
 		}
 		return properties
 	end,
-	render = function() end,
-	update = function() end,
+	render = function(baseImage, properties)
+		return baseImage
+	end,
 })
 
 -- Class
@@ -121,8 +124,10 @@ PostProcessingControllerClass.ClassName = "PostProcessingController"
 
 export type PostProcessingController = typeof(setmetatable(
 	{} :: {
+		editImage: EditableImage?,
 		imageTrove: Trove.Trove,
-		observableEffects: ObservableValue.ObservableValue<{ Effect }>,
+
+		observableEffects: ObservableValue.ObservableValue<{ ObservableValue.ObservableValue<Effect> }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 	},
 	PostProcessingControllerClass
@@ -131,7 +136,9 @@ export type PostProcessingController = typeof(setmetatable(
 function PostProcessingControllerStatic.new()
 	local self = setmetatable({}, PostProcessingControllerClass) :: PostProcessingController
 
+	self.editImage = nil
 	self.imageTrove = Trove.new()
+
 	self.observableEffects = ObservableValue.new({})
 	self.observableLayers = ObservableValue.new({})
 
@@ -143,8 +150,8 @@ end
 -- Public
 
 function PostProcessingControllerClass.isEffectPublic(self: PostProcessingController, kind: string)
-	local entry = assert(registeredByKind[kind])
-	return entry.public
+	local effectEntry = assert(registeredByKind[kind])
+	return effectEntry.public
 end
 
 function PostProcessingControllerClass.getPublicEffectKinds(self: PostProcessingController)
@@ -152,16 +159,17 @@ function PostProcessingControllerClass.getPublicEffectKinds(self: PostProcessing
 end
 
 function PostProcessingControllerClass.createEffect(self: PostProcessingController, kind: string, name: string)
-	local entry = assert(registeredByKind[kind])
-	local effect = {
+	local effectEntry = assert(registeredByKind[kind])
+	local observableEffect = ObservableValue.new({
 		kind = kind,
 		name = name,
+		index = #self.observableEffects:get() + 1,
 		renderTicket = 0,
-		properties = entry.create(),
-	}
+		properties = effectEntry.create(),
+	})
 
 	self.observableEffects:update()(function(effects)
-		table.insert(effects, effect :: any)
+		table.insert(effects, observableEffect :: any)
 		return effects
 	end)
 end
@@ -171,23 +179,77 @@ function PostProcessingControllerClass.useEffects(self: PostProcessingController
 end
 
 function PostProcessingControllerClass.loadImageAsync(self: PostProcessingController, editImage: EditableImage)
-	-- load the image in
-	-- render each of the layers
-	self.observableLayers:set({
-		{
-			EditImage = editImage,
-			TintColor = Color3.new(1, 1, 1),
-			Transparency = 0,
-		},
-	})
+	if self.editImage == editImage then
+		return
+	end
 
-	self.imageTrove:Add(function()
-		self.observableLayers:set({})
-	end)
+	self:unloadImage()
+	self.editImage = editImage
+
+	local function watchEffectAsync(observedEffect: ObservableValue.ObservableValue<Effect>)
+		local effect = observedEffect:get()
+		local effectEntry = registeredByKind[effect.kind]
+
+		local layer: Layer = {
+			EditImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
+			TintColor = effect.properties.color,
+			Transparency = effect.properties.transparency,
+		}
+
+		local watchTrove = Trove.new()
+		local renderTicket = effect.renderTicket
+		watchTrove:Add(observedEffect:onChanged(function()
+			local newRenderTicket = effect.renderTicket
+			if newRenderTicket ~= renderTicket then
+				renderTicket = newRenderTicket
+				effectEntry.render(layer.EditImage, effect.properties :: any)
+			end
+
+			layer.TintColor = effect.properties.color
+			layer.Transparency = effect.properties.transparency
+
+			self.observableLayers:update()(function(layers)
+				layers[effect.index] = layer
+				return layers
+			end)
+		end))
+
+		effectEntry.render(layer.EditImage, effect.properties :: any)
+
+		self.observableLayers:update()(function(layers)
+			layers[effect.index] = layer
+			return layers
+		end)
+
+		return function()
+			layer.EditImage:Destroy()
+			watchTrove:Destroy()
+		end
+	end
+
+	local watching = {}
+	for _, observedEffect in self.observableEffects:get() do
+		watching[observedEffect] = watchEffectAsync(observedEffect :: any)
+	end
+
+	self.imageTrove:Add(self.observableEffects:onChanged(function()
+		local newWatching = {}
+		for _, observedEffect in self.observableEffects:get() do
+			newWatching[observedEffect] = watching[observedEffect] or watchEffectAsync(observedEffect :: any)
+			watching[observedEffect] = nil
+		end
+
+		for observableEffect, cleanup in watching do
+			cleanup()
+		end
+
+		watching = newWatching
+	end))
 end
 
 function PostProcessingControllerClass.unloadImage(self: PostProcessingController)
 	self.imageTrove:Clean()
+	self.editImage = nil
 end
 
 function PostProcessingControllerClass.composeImageAsync(self: PostProcessingController, editImage: EditableImage)

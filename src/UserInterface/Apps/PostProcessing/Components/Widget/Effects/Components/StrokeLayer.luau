@@ -8,7 +8,6 @@ local Controller = require(postProcessingRoot.Controller)
 export type Props = {
 	Effect: Controller.StrokeEffect,
 	UpdateEffect: ((Controller.StrokeEffect) -> Controller.StrokeEffect?) -> (),
-	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 
