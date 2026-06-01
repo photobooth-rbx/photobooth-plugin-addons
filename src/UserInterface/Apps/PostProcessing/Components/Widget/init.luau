@@ -55,7 +55,7 @@ local function useSelectedEditImages()
 			end
 		end
 		return editImages
-	end, {})
+	end, { selected })
 
 	React.useEffect(function()
 		setIndex(1)

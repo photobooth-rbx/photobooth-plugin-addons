@@ -207,13 +207,14 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 	local isImageLoaded = Future.new()
 
 	self.imageTrove:Add(function()
+		self.observableLayers:set({})
 		if not isImageLoaded:isCompleted() then
 			isImageLoaded:complete()
 		end
 	end)
 
 	self.imageTrove:Add(task.spawn(function()
-		local svfEdit = SignedVectorField.generateAsync(Content.fromObject(editImage))
+		local svfEdit = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)) --SignedVectorField.generateAsync(Content.fromObject(editImage))
 		self.imageTrove:Add(function()
 			svfEdit:Destroy()
 		end)
