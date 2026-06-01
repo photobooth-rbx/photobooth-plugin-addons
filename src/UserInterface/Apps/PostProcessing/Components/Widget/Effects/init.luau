@@ -7,6 +7,7 @@ local React = require(pluginRoot.Packages.React)
 
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
+local Effects = require(postProcessingRoot.Controller.Effects)
 
 local GroupHeader = require(script.GroupHeader)
 local BaseImageEffect = require(script.Components.BaseImageLayer)
@@ -36,7 +37,6 @@ type EffectProps = {
 
 local function EffectComponent(props: EffectProps)
 	local effect, updateEffect = props.ObservableEffect:use()
-	local isPublicEffect = props.Controller:isEffectPublic(effect.kind)
 
 	local component: React.FC<any>
 	if effect.kind == "Base Image" then
@@ -52,7 +52,7 @@ local function EffectComponent(props: EffectProps)
 		LayoutOrder = props.LayoutOrder,
 		Disabled = props.Disabled,
 
-		OnTrashActivated = if isPublicEffect
+		OnTrashActivated = if effect.playerCreated
 			then function()
 				props.Controller.observableEffects:update()(function(effects)
 					table.remove(effects, props.LayoutOrder)
