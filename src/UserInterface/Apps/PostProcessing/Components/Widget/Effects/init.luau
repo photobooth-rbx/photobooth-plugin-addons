@@ -7,7 +7,6 @@ local React = require(pluginRoot.Packages.React)
 
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
-local Effects = require(postProcessingRoot.Controller.Effects)
 
 local GroupHeader = require(script.GroupHeader)
 local BaseImageEffect = require(script.Components.BaseImageLayer)
