@@ -262,7 +262,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 
 	self.imageTrove:Add(task.spawn(function()
 		local t = os.clock()
-		local svfEdit = SignedVectorField.generateAsync(Content.fromObject(editImage))
+		local svfEdit = SignedVectorField.generateParallelAsync(Content.fromObject(editImage))
 		print(os.clock() - t)
 		self.imageTrove:Add(function()
 			svfEdit:Destroy()
