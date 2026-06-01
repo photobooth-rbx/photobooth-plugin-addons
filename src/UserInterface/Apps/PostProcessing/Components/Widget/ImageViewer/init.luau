@@ -14,6 +14,7 @@ export type Props = {
 
 	Title: string,
 	Layers: { Controller.Layer },
+	IsLoading: boolean,
 }
 
 local function ImageViewer(props: Props)
@@ -38,7 +39,7 @@ local function ImageViewer(props: Props)
 
 			Title = props.Title,
 			Layers = props.Layers,
-			IsLoading = false,
+			IsLoading = props.IsLoading,
 		}),
 	})
 end

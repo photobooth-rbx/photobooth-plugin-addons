@@ -3,7 +3,12 @@
 
 local AssetService = game:GetService("AssetService")
 
+local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local Timeout = require(pluginRoot.Utilities.Timeout)
+
 local PLUS_ONE = true
+
+local tryYield = Timeout.scriptExhaustionStepper(1 / 60)
 
 local function plantSeeds(img: EditableImage)
 	local imgSize = img.Size
@@ -14,6 +19,8 @@ local function plantSeeds(img: EditableImage)
 
 	for y = 1, imgHeight do
 		for x = 1, imgWidth do
+			tryYield()
+
 			local i = x + (y - 1) * imgWidth
 			local j = (i - 1) * 4
 
@@ -53,6 +60,8 @@ local function jfa(voronoi: EditableImage, seedbed: buffer)
 	for _, step in passSteps do
 		for y = 1, imgHeight do
 			for x = 1, imgWidth do
+				tryYield()
+
 				local i = x + (y - 1) * imgWidth
 				local j = (i - 1) * 4
 

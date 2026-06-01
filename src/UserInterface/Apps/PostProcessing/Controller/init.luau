@@ -3,7 +3,6 @@ local AssetService = game:GetService("AssetService")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Future = require(pluginRoot.Packages.Future)
-local Signal = require(pluginRoot.Packages.Signal)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local SignedVectorField = require(script.SignedVectorField)
