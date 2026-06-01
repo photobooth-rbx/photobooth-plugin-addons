@@ -57,14 +57,11 @@ local function DropShadowEffect(props: Props)
 
 			Value = props.Effect.properties.offset,
 			OnValueSubmitted = function(newValue)
-				-- TODO: fix bug in the studio properties library to cause this to submit on component initialize
-				if props.Effect.properties.offset ~= newValue then
-					props.UpdateEffect(function(layer)
-						layer.properties.offset = newValue
-						layer.renderTicket += 1
-						return layer
-					end)
-				end
+				props.UpdateEffect(function(layer)
+					layer.properties.offset = newValue
+					layer.renderTicket += 1
+					return layer
+				end)
 			end,
 
 			Disabled = props.Disabled,
