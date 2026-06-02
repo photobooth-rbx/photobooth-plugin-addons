@@ -64,6 +64,7 @@ local function DropShadowEffect(props: Props)
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
 					layer.properties.offset = newValue
+					layer.renderTicket += 1
 					return layer
 				end)
 			end,

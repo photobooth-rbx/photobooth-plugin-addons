@@ -70,7 +70,7 @@ registerEffect("Base Image", {
 	playerCreated = false,
 	create = function()
 		local properties: BaseImageProperties = {
-			transparency = 0,
+			transparency = 0.7,
 			offset = Vector2.zero,
 			color = Color3.new(1, 1, 1),
 		}
@@ -135,6 +135,7 @@ registerEffect("Stroke", {
 export type DropShadowProperties = {
 	blur: number,
 	spread: number,
+	maskImage: boolean,
 	transparency: number,
 	offset: Vector2,
 	color: Color3,
@@ -144,9 +145,10 @@ registerEffect("Drop Shadow", {
 	playerCreated = true,
 	create = function()
 		local properties: DropShadowProperties = {
-			blur = 0,
-			spread = 0,
-			transparency = 1,
+			blur = 10,
+			spread = 10,
+			maskImage = true,
+			transparency = 0,
 			offset = Vector2.zero,
 			color = Color3.new(0, 0, 0),
 		}
@@ -168,9 +170,26 @@ registerEffect("Drop Shadow", {
 
 					local shadowAlpha = 0
 					if maxSpread > 0 then
-						local signedDistance = readSignedDistance(svf, imgWidth, x, y)
-						local edgeDistance = signedDistance - properties.spread
-						shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
+						local isMasked = false
+						if properties.maskImage then
+							local dx = x + properties.offset.X
+							local dy = y + properties.offset.Y
+							if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
+								local di = dx + (dy - 1) * imgWidth
+								local dj = (di - 1) * 4
+
+								local pi = buffer.readi32(svf, dj)
+								if pi < 0 then
+									isMasked = true
+								end
+							end
+						end
+
+						if not isMasked then
+							local signedDistance = readSignedDistance(svf, imgWidth, x, y)
+							local edgeDistance = signedDistance - properties.spread
+							shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
+						end
 					end
 
 					buffer.writeu8(output, j + 0, 255)
