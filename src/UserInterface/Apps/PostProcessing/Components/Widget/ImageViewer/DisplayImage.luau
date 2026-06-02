@@ -59,14 +59,14 @@ local function DisplayImage(props: Props)
 	local size = Vector2.zero
 	local layerLabels: { [string]: React.ReactNode } = {}
 	for i, layer in props.Layers do
-		size = size:Max(layer.EditImage.Size)
+		size = size:Max(layer.editImage.Size)
 		layerLabels["Layer" .. i] = React.createElement("ImageLabel", {
 			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(layer.Offset.X, layer.Offset.Y),
+			Position = UDim2.fromOffset(layer.offset.X, layer.offset.Y),
 			Size = UDim2.fromScale(1, 1),
-			ImageColor3 = layer.TintColor,
-			ImageTransparency = layer.Transparency,
-			ImageContent = Content.fromObject(layer.EditImage),
+			ImageColor3 = layer.tintColor,
+			ImageTransparency = layer.transparency,
+			ImageContent = Content.fromObject(layer.editImage),
 			ZIndex = -i,
 		})
 	end

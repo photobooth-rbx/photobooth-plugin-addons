@@ -1,4 +1,6 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local PhotoboothBindings = require(ReplicatedStorage.PluginRoot.Packages.PhotoboothBindings)
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
@@ -92,18 +94,20 @@ local function Widget(props: Props)
 	local disabled = isApplying or isDialogOpen or not not props.Disabled
 
 	React.useEffect(function()
-		local editImage = selected.images[selected.index]
-		if editImage then
-			task.spawn(function()
-				setLoadingLayer(Controller.loadingLayer(editImage))
-				controller:loadImageAsync(editImage)
+		if not isApplying then
+			local editImage = selected.images[selected.index]
+			if editImage then
+				task.spawn(function()
+					setLoadingLayer(Controller.loadingLayer(editImage))
+					controller:loadImageAsync(editImage)
+					setLoadingLayer(nil :: any)
+				end)
+			else
+				controller:unloadImage()
 				setLoadingLayer(nil :: any)
-			end)
-		else
-			controller:unloadImage()
-			setLoadingLayer(nil :: any)
+			end
 		end
-	end, { selected.images, selected.index } :: { any })
+	end, { selected.images, selected.index, isApplying } :: { any })
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -244,6 +248,14 @@ local function Widget(props: Props)
 
 						OnActivated = function()
 							setIsApplying(true)
+
+							local editImage = controller.editImage
+							if editImage then
+								local composed = controller:composeImageAsync(editImage)
+								local meshPart = PhotoboothBindings.getMeshPart()
+								meshPart.TextureContent = Content.fromObject(composed)
+								meshPart.Parent = game:GetService("StarterGui")
+							end
 
 							setIsApplying(false)
 						end,

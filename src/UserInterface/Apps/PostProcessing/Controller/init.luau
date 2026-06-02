@@ -25,11 +25,11 @@ export type DropShadowEffect = GenericEffect<"Drop Shadow", Effects.DropShadowPr
 export type Effect = BaseImageEffect | StrokeEffect | DropShadowEffect
 
 export type Layer = {
-	Name: string,
-	EditImage: EditableImage,
-	TintColor: Color3,
-	Offset: Vector2,
-	Transparency: number,
+	name: string,
+	editImage: EditableImage,
+	tintColor: Color3,
+	offset: Vector2,
+	transparency: number,
 }
 
 -- Class
@@ -67,11 +67,11 @@ end
 
 function PostProcessingControllerStatic.loadingLayer(editImage: EditableImage)
 	local layer: Layer = {
-		Name = "Image",
-		EditImage = editImage,
-		TintColor = Color3.new(1, 1, 1),
-		Offset = Vector2.zero,
-		Transparency = 0,
+		name = "Image",
+		editImage = editImage,
+		tintColor = Color3.new(1, 1, 1),
+		offset = Vector2.zero,
+		transparency = 0,
 	}
 
 	return layer
@@ -132,17 +132,17 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			local effectEntry = Effects.getByKind(effect.kind)
 
 			local layer: Layer = {
-				Name = effect.name,
-				EditImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
-				TintColor = effect.properties.color,
-				Offset = effect.properties.offset,
-				Transparency = effect.properties.transparency,
+				name = effect.name,
+				editImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
+				tintColor = effect.properties.color,
+				offset = effect.properties.offset,
+				transparency = effect.properties.transparency,
 			}
 
 			local inputs = {
 				base = editImage,
 				svf = svfEdit,
-				output = layer.EditImage,
+				output = layer.editImage,
 			}
 
 			local watchTrove = Trove.new()
@@ -161,10 +161,10 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						end
 					end
 
-					layer.Name = effect.name
-					layer.TintColor = effect.properties.color
-					layer.Offset = effect.properties.offset
-					layer.Transparency = effect.properties.transparency
+					layer.name = effect.name
+					layer.tintColor = effect.properties.color
+					layer.offset = effect.properties.offset
+					layer.transparency = effect.properties.transparency
 
 					self.observableLayers:update()(function(layers)
 						layers[effect.index] = layer
@@ -188,7 +188,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			local function cleanup()
 				watchTrove:Destroy()
 				asyncTrove:Destroy()
-				layer.EditImage:Destroy()
+				layer.editImage:Destroy()
 				if not renderReady:isCompleted() then
 					renderReady:complete()
 				end
@@ -245,8 +245,72 @@ end
 
 function PostProcessingControllerClass.composeImageAsync(self: PostProcessingController, editImage: EditableImage)
 	self:loadImageAsync(editImage)
-	-- compose
+
+	local imgSize = editImage.Size
+	local imgWidth, imgHeight = imgSize.X, imgSize.Y
+	local composed = buffer.create(imgWidth * imgHeight * 4)
+
+	local bufferByLayer = {}
+	local layers = self.observableLayers:get()
+	for _, layer in layers do
+		bufferByLayer[layer] = layer.editImage:ReadPixelsBuffer(Vector2.zero, imgSize)
+	end
+
+	for y = 1, imgHeight do
+		for x = 1, imgWidth do
+			local blendRGBAs = {}
+			for i = #layers, 1, -1 do
+				local layer = layers[i]
+				local dx = x - layer.offset.X
+				local dy = y - layer.offset.Y
+
+				if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
+					local di = dx + (dy - 1) * imgWidth
+					local dj = (di - 1) * 4
+
+					local layerBuffer = bufferByLayer[layer]
+					local r = buffer.readu8(layerBuffer, dj + 0) * layer.tintColor.R
+					local g = buffer.readu8(layerBuffer, dj + 1) * layer.tintColor.G
+					local b = buffer.readu8(layerBuffer, dj + 2) * layer.tintColor.B
+					local a = buffer.readu8(layerBuffer, dj + 3) * (1 - layer.transparency)
+
+					table.insert(blendRGBAs, { r, g, b, a })
+				end
+			end
+
+			local blendedRGBA = { 0, 0, 0, 0 }
+			for _, rgba in blendRGBAs do
+				local aAlpha = rgba[4] / 255
+				local bAlpha = blendedRGBA[4] / 255
+
+				local outAlpha = aAlpha + bAlpha * (1 - aAlpha)
+				local newRGBA = { 0, 0, 0, outAlpha * 255 }
+
+				if outAlpha > 0 then
+					for j = 1, 3 do
+						newRGBA[j] = (rgba[j] * aAlpha + blendedRGBA[j] * bAlpha * (1 - aAlpha)) / outAlpha
+					end
+				end
+
+				blendedRGBA = newRGBA
+			end
+
+			local i = x + (y - 1) * imgWidth
+			local j = (i - 1) * 4
+
+			buffer.writeu8(composed, j + 0, blendedRGBA[1])
+			buffer.writeu8(composed, j + 1, blendedRGBA[2])
+			buffer.writeu8(composed, j + 2, blendedRGBA[3])
+			buffer.writeu8(composed, j + 3, blendedRGBA[4])
+		end
+	end
+
+	local composedEdit = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
+	composedEdit:WritePixelsBuffer(Vector2.zero, imgSize, composed)
+
 	self:unloadImage()
+
+	return composedEdit
 end
 
 function PostProcessingControllerClass.useLayers(self: PostProcessingController)
