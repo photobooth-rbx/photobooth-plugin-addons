@@ -180,6 +180,13 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 		end
 
 		local watching = {}
+		self.imageTrove:Add(function()
+			for observableEffect, cleanup in watching do
+				local cleanupCasted = cleanup :: () -> ()
+				cleanupCasted()
+			end
+		end)
+
 		for _, observedEffect in self.observableEffects:get() do
 			local renderReady, cleanup = watchEffect(observedEffect :: any)
 			watching[observedEffect] = cleanup

@@ -1,5 +1,3 @@
-local IntegralImage = require(script.Parent.Helpers.IntegralImage)
-
 local Effects = {}
 
 export type ImageInputs = {
@@ -154,31 +152,37 @@ registerEffect("Drop Shadow", {
 		local imgSize = inputs.base.Size
 		local imgWidth, imgHeight = imgSize.X, imgSize.Y
 		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
-		local base = inputs.base:ReadPixelsBuffer(Vector2.zero, imgSize)
 
-		local shadowIntImg = IntegralImage.fromBuffer(base, imgSize, function(u32, x, y)
-			local signedDistance = readSignedDistance(svf, imgWidth, x, y)
-			return if signedDistance <= properties.spread then 255 else 0
-		end)
+		local output = buffer.create(imgWidth * imgHeight * 4)
+		local maxSpread = properties.spread + properties.blur
 
-		for y = 1, imgHeight do
-			for x = 1, imgWidth do
-				local i = x + (y - 1) * imgWidth
-				local j = (i - 1) * 4
+		if maxSpread > 0 then
+			for y = 1, imgHeight do
+				for x = 1, imgWidth do
+					local i = x + (y - 1) * imgWidth
+					local j = (i - 1) * 4
 
-				local dx = x - properties.offset.X
-				local dy = y - properties.offset.Y
-				local shadowAlphaSum = shadowIntImg:readRadius(dx, dy, properties.blur)
-				local shadowBoxSide = 2 * properties.blur + 1
+					local ox = math.floor(x - properties.offset.X)
+					local oy = math.floor(y - properties.offset.Y)
+					local sx = math.clamp(ox, 1, imgWidth)
+					local sy = math.clamp(oy, 1, imgHeight)
 
-				buffer.writeu8(base, j + 0, 255)
-				buffer.writeu8(base, j + 1, 255)
-				buffer.writeu8(base, j + 2, 255)
-				buffer.writeu8(base, j + 3, shadowAlphaSum / (shadowBoxSide * shadowBoxSide))
+					local shadowAlpha = 0
+					if math.abs(oy - sy) <= maxSpread and math.abs(ox - sx) <= maxSpread then
+						local signedDistance = readSignedDistance(svf, imgWidth, sx, sy)
+						local edgeDistance = signedDistance - properties.spread
+						shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
+					end
+
+					buffer.writeu8(output, j + 0, 255)
+					buffer.writeu8(output, j + 1, 255)
+					buffer.writeu8(output, j + 2, 255)
+					buffer.writeu8(output, j + 3, 255 * shadowAlpha)
+				end
 			end
 		end
 
-		inputs.output:WritePixelsBuffer(Vector2.zero, imgSize, base)
+		inputs.output:WritePixelsBuffer(Vector2.zero, imgSize, output)
 	end,
 })
 
