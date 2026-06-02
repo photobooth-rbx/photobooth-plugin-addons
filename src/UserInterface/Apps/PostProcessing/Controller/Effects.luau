@@ -34,9 +34,9 @@ local function smoothStep(edge0: number, edge1: number, x: number)
 	return t * t * (3.0 - 2.0 * t)
 end
 
-local function smoothBand(edgeA0: number, edgeA1: number, edgeB0: number, edgeB1: number, x: number)
-	local lower = 1 - smoothStep(edgeA0, edgeA1, x)
-	local upper = smoothStep(edgeB0, edgeB1, x)
+local function smoothBand(edge0: number, edge1: number, feather: number, x: number)
+	local lower = 1 - smoothStep(edge0 - feather, edge0 + feather, x)
+	local upper = smoothStep(edge1 - feather, edge1 + feather, x)
 	return math.max(lower, upper)
 end
 
@@ -148,7 +148,7 @@ registerEffect("Drop Shadow", {
 		local properties: DropShadowProperties = {
 			blur = 10,
 			spread = 10,
-			maskImage = true,
+			maskImage = false,
 			shadowOffset = Vector2.zero,
 			transparency = 0,
 			offset = Vector2.zero,
@@ -175,18 +175,11 @@ registerEffect("Drop Shadow", {
 					local dx = math.floor(x - properties.shadowOffset.X)
 					local dy = math.floor(y - properties.shadowOffset.Y)
 					if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
-						local isMasked = false
-						if properties.maskImage then
-							isMasked = readSignedDistance(svf, imgWidth, x, y) < 0
-						end
-
-						if not isMasked then
-							local signedDistance = readSignedDistance(svf, imgWidth, dx, dy)
-							if signedDistance < 0 then
-								signedDistance = signedDistance + 1
-							end
-
-							local edgeDistance = signedDistance - properties.spread
+						local signedDistance = readSignedDistance(svf, imgWidth, x, y)
+						if properties.maskImage and signedDistance < 0 then
+							shadowAlpha = smoothStep(-properties.blur, properties.blur, signedDistance)
+						else
+							local edgeDistance = readSignedDistance(svf, imgWidth, dx, dy) - properties.spread
 							shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
 						end
 					end
