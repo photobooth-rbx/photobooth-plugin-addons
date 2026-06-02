@@ -15,6 +15,7 @@ local ImageViewer = require(script.ImageViewer)
 local EffectDialog = require(script.EffectDialog)
 
 local ACTION_BAR_HEIGHT = 38
+local ADD_EFFECT_BUTTON_HEIGHT = 32
 
 local IMAGE_ICON = assert(Lucide.GetAsset("image", 16))
 local IMAGES_ICON = assert(Lucide.GetAsset("images", 16))
@@ -128,7 +129,7 @@ local function Widget(props: Props)
 				}, {
 					Content = React.createElement("Frame", {
 						BackgroundTransparency = 1,
-						Size = UDim2.new(1, 0, 1, -28),
+						Size = UDim2.new(1, 0, 1, -ADD_EFFECT_BUTTON_HEIGHT),
 					}, {
 						Dots = isApplying and React.createElement(StudioComponents.LoadingDots, {
 							Size = UDim2.fromScale(1, 1),
@@ -146,7 +147,7 @@ local function Widget(props: Props)
 						BackgroundTransparency = 1,
 						AnchorPoint = Vector2.new(0, 1),
 						Position = UDim2.fromScale(0, 1),
-						Size = UDim2.new(1, 0, 0, 28),
+						Size = UDim2.new(1, 0, 0, ADD_EFFECT_BUTTON_HEIGHT),
 						ClipsDescendants = true,
 					}, {
 						Padding = React.createElement("UIPadding", {
