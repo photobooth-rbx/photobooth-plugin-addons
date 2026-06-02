@@ -1,3 +1,5 @@
+local IntegralImage = require(script.Parent.Helpers.IntegralImage)
+
 local Effects = {}
 
 export type ImageInputs = {
@@ -35,6 +37,24 @@ local function smoothStep(edge0: number, edge1: number, x: number)
 	end
 	local t = math.clamp((x - edge0) / (edge1 - edge0), 0, 1)
 	return t * t * (3.0 - 2.0 * t)
+end
+
+local function readSignedDistance(svf: buffer, width: number, x: number, y: number)
+	local i = x + (y - 1) * width
+	local j = (i - 1) * 4
+
+	local signedPixelIndex = buffer.readi32(svf, j)
+	local pixelIndex = math.abs(signedPixelIndex)
+	local sign = math.sign(signedPixelIndex)
+
+	local ny = math.floor((pixelIndex - 1) / width) + 1
+	local nx = pixelIndex - (ny - 1) * width
+
+	local distanceSq = (nx - x) ^ 2 + (ny - y) ^ 2
+	local distance = math.sqrt(distanceSq)
+	local signedDistance = distance * sign
+
+	return signedDistance
 end
 
 -- Effects
@@ -87,16 +107,7 @@ registerEffect("Stroke", {
 				local i = x + (y - 1) * imgWidth
 				local j = (i - 1) * 4
 
-				local signedPixelIndex = buffer.readi32(svf, j)
-				local pixelIndex = math.abs(signedPixelIndex)
-				local sign = math.sign(signedPixelIndex)
-
-				local ny = math.floor((pixelIndex - 1) / imgWidth) + 1
-				local nx = pixelIndex - (ny - 1) * imgWidth
-
-				local distanceSq = (nx - x) ^ 2 + (ny - y) ^ 2
-				local distance = math.sqrt(distanceSq)
-				local signedDistance = distance * sign
+				local signedDistance = readSignedDistance(svf, imgWidth, x, y)
 
 				local strokeAlpha = 0
 				if properties.thickness > 0 then
@@ -140,16 +151,34 @@ registerEffect("Drop Shadow", {
 		return properties
 	end,
 	render = function(inputs, properties)
-		local size = inputs.output.Size
-		local b = inputs.output:ReadPixelsBuffer(Vector2.zero, size)
-		for i = 1, size.X * size.Y do
-			local j = (i - 1) * 4
-			buffer.writeu8(b, j + 0, 0)
-			buffer.writeu8(b, j + 1, 0)
-			buffer.writeu8(b, j + 2, 0)
-			buffer.writeu8(b, j + 3, 255)
+		local imgSize = inputs.base.Size
+		local imgWidth, imgHeight = imgSize.X, imgSize.Y
+		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
+		local base = inputs.base:ReadPixelsBuffer(Vector2.zero, imgSize)
+
+		local shadowIntImg = IntegralImage.fromBuffer(base, imgSize, function(u32, x, y)
+			local signedDistance = readSignedDistance(svf, imgWidth, x, y)
+			return if signedDistance <= properties.spread then 255 else 0
+		end)
+
+		for y = 1, imgHeight do
+			for x = 1, imgWidth do
+				local i = x + (y - 1) * imgWidth
+				local j = (i - 1) * 4
+
+				local dx = x - properties.offset.X
+				local dy = y - properties.offset.Y
+				local shadowAlphaSum = shadowIntImg:readRadius(dx, dy, properties.blur)
+				local shadowBoxSide = 2 * properties.blur + 1
+
+				buffer.writeu8(base, j + 0, 255)
+				buffer.writeu8(base, j + 1, 255)
+				buffer.writeu8(base, j + 2, 255)
+				buffer.writeu8(base, j + 3, shadowAlphaSum / (shadowBoxSide * shadowBoxSide))
+			end
 		end
-		inputs.output:WritePixelsBuffer(Vector2.zero, size, b)
+
+		inputs.output:WritePixelsBuffer(Vector2.zero, imgSize, base)
 	end,
 })
 

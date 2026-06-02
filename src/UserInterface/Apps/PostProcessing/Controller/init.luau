@@ -6,7 +6,7 @@ local Future = require(pluginRoot.Packages.Future)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local Effects = require(script.Effects)
-local SignedVectorField = require(script.SignedVectorField)
+local SignedVectorField = require(script.Helpers.SignedVectorField)
 
 -- Types
 
