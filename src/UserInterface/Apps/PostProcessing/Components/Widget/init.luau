@@ -10,7 +10,7 @@ local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 local Hooks = require(uiRoot.Hooks)
 
-local Effects = require(script.Effects)
+local EffectsList = require(script.EffectsList)
 local ImageViewer = require(script.ImageViewer)
 local EffectDialog = require(script.EffectDialog)
 
@@ -136,7 +136,7 @@ local function Widget(props: Props)
 							ZIndex = 2,
 						}),
 
-						Effects = React.createElement(Effects, {
+						EffectsList = React.createElement(EffectsList, {
 							Size = UDim2.fromScale(1, 1),
 							Controller = controller,
 							Disabled = disabled,

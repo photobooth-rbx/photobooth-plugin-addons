@@ -94,7 +94,7 @@ local function EffectComponent(props: EffectProps)
 	})
 end
 
-local function Effects(props: Props)
+local function EffectsList(props: Props)
 	local observableEffects = props.Controller:useEffects()
 
 	local effectNodes: { [string]: React.ReactNode } = {}
@@ -150,4 +150,4 @@ local function Effects(props: Props)
 	})
 end
 
-return Effects
+return EffectsList
