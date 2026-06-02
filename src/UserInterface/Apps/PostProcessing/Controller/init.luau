@@ -25,8 +25,10 @@ export type DropShadowEffect = GenericEffect<"Drop Shadow", Effects.DropShadowPr
 export type Effect = BaseImageEffect | StrokeEffect | DropShadowEffect
 
 export type Layer = {
+	Name: string,
 	EditImage: EditableImage,
 	TintColor: Color3,
+	Offset: Vector2,
 	Transparency: number,
 }
 
@@ -61,6 +63,18 @@ function PostProcessingControllerStatic.new()
 	self:createEffect("Base Image", "Image")
 
 	return self
+end
+
+function PostProcessingControllerStatic.loadingLayer(editImage: EditableImage)
+	local layer: Layer = {
+		Name = "Image",
+		EditImage = editImage,
+		TintColor = Color3.new(1, 1, 1),
+		Offset = Vector2.zero,
+		Transparency = 0,
+	}
+
+	return layer
 end
 
 -- Public
@@ -118,8 +132,10 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			local effectEntry = Effects.getByKind(effect.kind)
 
 			local layer: Layer = {
+				Name = effect.name,
 				EditImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
 				TintColor = effect.properties.color,
+				Offset = effect.properties.offset,
 				Transparency = effect.properties.transparency,
 			}
 
@@ -145,7 +161,9 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						end
 					end
 
+					layer.Name = effect.name
 					layer.TintColor = effect.properties.color
+					layer.Offset = effect.properties.offset
 					layer.Transparency = effect.properties.transparency
 
 					self.observableLayers:update()(function(layers)

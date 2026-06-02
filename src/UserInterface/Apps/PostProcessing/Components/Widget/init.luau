@@ -88,20 +88,20 @@ local function Widget(props: Props)
 	local layers = controller:useLayers()
 	local isApplying, setIsApplying = React.useState(false)
 	local isDialogOpen, setIsDialogOpen = React.useState(false)
-	local loadingImage, setLoadingImage = React.useState(nil :: EditableImage?)
+	local loadingLayer, setLoadingLayer = React.useState(nil :: Controller.Layer?)
 	local disabled = isApplying or isDialogOpen or not not props.Disabled
 
 	React.useEffect(function()
 		local editImage = selected.images[selected.index]
 		if editImage then
 			task.spawn(function()
-				setLoadingImage(editImage)
+				setLoadingLayer(Controller.loadingLayer(editImage))
 				controller:loadImageAsync(editImage)
-				setLoadingImage(nil :: any)
+				setLoadingLayer(nil :: any)
 			end)
 		else
 			controller:unloadImage()
-			setLoadingImage(nil :: any)
+			setLoadingLayer(nil :: any)
 		end
 	end, { selected.images, selected.index } :: { any })
 
@@ -193,16 +193,8 @@ local function Widget(props: Props)
 					ImageViewer = React.createElement(ImageViewer, {
 						Size = UDim2.fromScale(1, 1),
 						Title = "Image",
-						IsLoading = not not loadingImage,
-						Layers = if loadingImage
-							then {
-								{
-									EditImage = loadingImage,
-									TintColor = Color3.new(1, 1, 1),
-									Transparency = 0,
-								},
-							}
-							else layers,
+						IsLoading = not not loadingLayer,
+						Layers = if loadingLayer then { loadingLayer } else layers,
 					}),
 				}),
 			}),

@@ -62,6 +62,7 @@ end
 
 export type BaseImageProperties = {
 	transparency: number,
+	offset: Vector2,
 	color: Color3,
 }
 
@@ -70,6 +71,7 @@ registerEffect("Base Image", {
 	create = function()
 		local properties: BaseImageProperties = {
 			transparency = 0,
+			offset = Vector2.zero,
 			color = Color3.new(1, 1, 1),
 		}
 		return properties
@@ -83,6 +85,7 @@ export type StrokeProperties = {
 	thickness: number,
 	softness: number,
 	transparency: number,
+	offset: Vector2,
 	color: Color3,
 }
 
@@ -93,6 +96,7 @@ registerEffect("Stroke", {
 			thickness = 0,
 			softness = 1,
 			transparency = 0,
+			offset = Vector2.zero,
 			color = Color3.new(0, 0, 0),
 		}
 		return properties
@@ -131,8 +135,8 @@ registerEffect("Stroke", {
 export type DropShadowProperties = {
 	blur: number,
 	spread: number,
-	offset: Vector2,
 	transparency: number,
+	offset: Vector2,
 	color: Color3,
 }
 
@@ -140,11 +144,11 @@ registerEffect("Drop Shadow", {
 	playerCreated = true,
 	create = function()
 		local properties: DropShadowProperties = {
-			transparency = 1,
-			color = Color3.new(0, 0, 0),
-			offset = Vector2.zero,
-			spread = 0,
 			blur = 0,
+			spread = 0,
+			transparency = 1,
+			offset = Vector2.zero,
+			color = Color3.new(0, 0, 0),
 		}
 		return properties
 	end,
@@ -162,14 +166,9 @@ registerEffect("Drop Shadow", {
 					local i = x + (y - 1) * imgWidth
 					local j = (i - 1) * 4
 
-					local ox = math.floor(x - properties.offset.X)
-					local oy = math.floor(y - properties.offset.Y)
-					local sx = math.clamp(ox, 1, imgWidth)
-					local sy = math.clamp(oy, 1, imgHeight)
-
 					local shadowAlpha = 0
-					if math.abs(oy - sy) <= maxSpread and math.abs(ox - sx) <= maxSpread then
-						local signedDistance = readSignedDistance(svf, imgWidth, sx, sy)
+					if maxSpread > 0 then
+						local signedDistance = readSignedDistance(svf, imgWidth, x, y)
 						local edgeDistance = signedDistance - properties.spread
 						shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
 					end

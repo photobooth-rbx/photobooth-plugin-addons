@@ -19,53 +19,23 @@ local function DropShadowEffect(props: Props)
 			Padding = UDim.new(0, 0),
 		}),
 
-		Transparency = React.createElement(StudioProperties.Number, {
-			FieldName = "Transparency",
+		Blur = React.createElement(StudioProperties.Number, {
+			FieldName = "Blur",
 
+			Step = 1,
 			Min = 0,
-			Max = 1,
 
-			Value = props.Effect.properties.transparency,
+			Value = props.Effect.properties.blur,
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
-					layer.properties.transparency = newValue
-					return layer
-				end)
-			end,
-
-			Disabled = props.Disabled,
-			LayoutOrder = 1,
-		}),
-
-		Color = React.createElement(StudioProperties.Color3, {
-			FieldName = "Color",
-
-			Value = props.Effect.properties.color,
-			OnValueSubmitted = function(newValue)
-				props.UpdateEffect(function(layer)
-					layer.properties.color = newValue
-					return layer
-				end)
-			end,
-
-			Disabled = props.Disabled,
-			LayoutOrder = 2,
-		}),
-
-		Offset = React.createElement(StudioProperties.Vector2, {
-			FieldName = "Offset",
-
-			Value = props.Effect.properties.offset,
-			OnValueSubmitted = function(newValue)
-				props.UpdateEffect(function(layer)
-					layer.properties.offset = newValue
+					layer.properties.blur = newValue
 					layer.renderTicket += 1
 					return layer
 				end)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 3,
+			LayoutOrder = 1,
 		}),
 
 		Spread = React.createElement(StudioProperties.Number, {
@@ -84,20 +54,49 @@ local function DropShadowEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
+			LayoutOrder = 2,
+		}),
+
+		Offset = React.createElement(StudioProperties.Vector2, {
+			FieldName = "Offset",
+
+			Value = props.Effect.properties.offset,
+			OnValueSubmitted = function(newValue)
+				props.UpdateEffect(function(layer)
+					layer.properties.offset = newValue
+					return layer
+				end)
+			end,
+
+			Disabled = props.Disabled,
+			LayoutOrder = 3,
+		}),
+
+		Transparency = React.createElement(StudioProperties.Number, {
+			FieldName = "Transparency",
+
+			Min = 0,
+			Max = 1,
+
+			Value = props.Effect.properties.transparency,
+			OnValueSubmitted = function(newValue)
+				props.UpdateEffect(function(layer)
+					layer.properties.transparency = newValue
+					return layer
+				end)
+			end,
+
+			Disabled = props.Disabled,
 			LayoutOrder = 4,
 		}),
 
-		Blur = React.createElement(StudioProperties.Number, {
-			FieldName = "Blur",
+		Color = React.createElement(StudioProperties.Color3, {
+			FieldName = "Color",
 
-			Step = 1,
-			Min = 0,
-
-			Value = props.Effect.properties.blur,
+			Value = props.Effect.properties.color,
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
-					layer.properties.blur = newValue
-					layer.renderTicket += 1
+					layer.properties.color = newValue
 					return layer
 				end)
 			end,

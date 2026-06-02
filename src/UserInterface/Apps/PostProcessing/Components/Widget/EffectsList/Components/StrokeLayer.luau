@@ -57,6 +57,21 @@ local function StrokeEffect(props: Props)
 			LayoutOrder = 2,
 		}),
 
+		Offset = React.createElement(StudioProperties.Vector2, {
+			FieldName = "Offset",
+
+			Value = props.Effect.properties.offset,
+			OnValueSubmitted = function(newValue)
+				props.UpdateEffect(function(layer)
+					layer.properties.offset = newValue
+					return layer
+				end)
+			end,
+
+			Disabled = props.Disabled,
+			LayoutOrder = 3,
+		}),
+
 		Transparency = React.createElement(StudioProperties.Number, {
 			FieldName = "Transparency",
 
@@ -72,7 +87,7 @@ local function StrokeEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 3,
+			LayoutOrder = 4,
 		}),
 
 		Color = React.createElement(StudioProperties.Color3, {
@@ -87,7 +102,7 @@ local function StrokeEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 4,
+			LayoutOrder = 5,
 		}),
 	})
 end

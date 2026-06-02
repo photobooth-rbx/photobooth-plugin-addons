@@ -62,6 +62,7 @@ local function DisplayImage(props: Props)
 		size = size:Max(layer.EditImage.Size)
 		layerLabels["Layer" .. i] = React.createElement("ImageLabel", {
 			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(layer.Offset.X, layer.Offset.Y),
 			Size = UDim2.fromScale(1, 1),
 			ImageColor3 = layer.TintColor,
 			ImageTransparency = layer.Transparency,
