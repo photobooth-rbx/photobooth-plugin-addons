@@ -60,10 +60,10 @@ local function DropShadowEffect(props: Props)
 		Offset = React.createElement(StudioProperties.Vector2, {
 			FieldName = "Offset",
 
-			Value = props.Effect.properties.offset,
+			Value = props.Effect.properties.shadowOffset,
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
-					layer.properties.offset = newValue
+					layer.properties.shadowOffset = newValue
 					layer.renderTicket += 1
 					return layer
 				end)

@@ -1,7 +1,7 @@
 local Effects = {}
 
 export type ImageInputs = {
-	base: EditableImage,
+	img: EditableImage,
 	svf: EditableImage,
 	output: EditableImage,
 }
@@ -34,9 +34,9 @@ local function smoothStep(edge0: number, edge1: number, x: number)
 	return t * t * (3.0 - 2.0 * t)
 end
 
-local function smoothBand(edge0: number, edge1: number, feather: number, x: number)
-	local lower = 1 - smoothStep(edge0 - feather, edge0 + feather, x)
-	local upper = smoothStep(edge1 - feather, edge1 + feather, x)
+local function smoothBand(edgeA0: number, edgeA1: number, edgeB0: number, edgeB1: number, x: number)
+	local lower = 1 - smoothStep(edgeA0, edgeA1, x)
+	local upper = smoothStep(edgeB0, edgeB1, x)
 	return math.max(lower, upper)
 end
 
@@ -102,7 +102,7 @@ registerEffect("Stroke", {
 		return properties
 	end,
 	render = function(inputs, properties)
-		local imgSize = inputs.output.Size
+		local imgSize = inputs.img.Size
 		local imgWidth, imgHeight = imgSize.X, imgSize.Y
 		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 		local output = buffer.create(imgWidth * imgHeight * 4)
@@ -136,6 +136,7 @@ export type DropShadowProperties = {
 	blur: number,
 	spread: number,
 	maskImage: boolean,
+	shadowOffset: Vector2,
 	transparency: number,
 	offset: Vector2,
 	color: Color3,
@@ -148,6 +149,7 @@ registerEffect("Drop Shadow", {
 			blur = 10,
 			spread = 10,
 			maskImage = true,
+			shadowOffset = Vector2.zero,
 			transparency = 0,
 			offset = Vector2.zero,
 			color = Color3.new(0, 0, 0),
@@ -155,7 +157,7 @@ registerEffect("Drop Shadow", {
 		return properties
 	end,
 	render = function(inputs, properties)
-		local imgSize = inputs.base.Size
+		local imgSize = inputs.img.Size
 		local imgWidth, imgHeight = imgSize.X, imgSize.Y
 		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 
@@ -169,24 +171,21 @@ registerEffect("Drop Shadow", {
 					local j = (i - 1) * 4
 
 					local shadowAlpha = 0
-					if maxSpread > 0 then
+
+					local dx = math.floor(x - properties.shadowOffset.X)
+					local dy = math.floor(y - properties.shadowOffset.Y)
+					if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
 						local isMasked = false
 						if properties.maskImage then
-							local dx = x + properties.offset.X
-							local dy = y + properties.offset.Y
-							if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
-								local di = dx + (dy - 1) * imgWidth
-								local dj = (di - 1) * 4
-
-								local pi = buffer.readi32(svf, dj)
-								if pi < 0 then
-									isMasked = true
-								end
-							end
+							isMasked = readSignedDistance(svf, imgWidth, x, y) < 0
 						end
 
 						if not isMasked then
-							local signedDistance = readSignedDistance(svf, imgWidth, x, y)
+							local signedDistance = readSignedDistance(svf, imgWidth, dx, dy)
+							if signedDistance < 0 then
+								signedDistance = signedDistance + 1
+							end
+
 							local edgeDistance = signedDistance - properties.spread
 							shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
 						end

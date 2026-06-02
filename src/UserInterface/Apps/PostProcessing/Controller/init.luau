@@ -27,8 +27,8 @@ export type Effect = BaseImageEffect | StrokeEffect | DropShadowEffect
 export type Layer = {
 	name: string,
 	editImage: EditableImage,
-	tintColor: Color3,
 	offset: Vector2,
+	tintColor: Color3,
 	transparency: number,
 }
 
@@ -69,8 +69,8 @@ function PostProcessingControllerStatic.loadingLayer(editImage: EditableImage)
 	local layer: Layer = {
 		name = "Image",
 		editImage = editImage,
-		tintColor = Color3.new(1, 1, 1),
 		offset = Vector2.zero,
+		tintColor = Color3.new(1, 1, 1),
 		transparency = 0,
 	}
 
@@ -134,13 +134,13 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			local layer: Layer = {
 				name = effect.name,
 				editImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
-				tintColor = effect.properties.color,
 				offset = effect.properties.offset,
+				tintColor = effect.properties.color,
 				transparency = effect.properties.transparency,
 			}
 
-			local inputs = {
-				base = editImage,
+			local inputs: Effects.ImageInputs = {
+				img = editImage,
 				svf = svfEdit,
 				output = layer.editImage,
 			}
@@ -162,8 +162,8 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					end
 
 					layer.name = effect.name
-					layer.tintColor = effect.properties.color
 					layer.offset = effect.properties.offset
+					layer.tintColor = effect.properties.color
 					layer.transparency = effect.properties.transparency
 
 					self.observableLayers:update()(function(layers)
@@ -261,6 +261,8 @@ function PostProcessingControllerClass.composeImageAsync(self: PostProcessingCon
 			local blendRGBAs = {}
 			for i = #layers, 1, -1 do
 				local layer = layers[i]
+				local offset = layer.offset
+
 				local dx = x - layer.offset.X
 				local dy = y - layer.offset.Y
 
