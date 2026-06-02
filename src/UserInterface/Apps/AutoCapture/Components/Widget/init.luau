@@ -4,13 +4,13 @@ local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
-local InstanceList = require(uiRoot.Components.InstanceList)
 local Hooks = require(uiRoot.Hooks)
 
 local AutoCaptureRoot = script:FindFirstAncestor("AutoCapture")
 local Controller = require(AutoCaptureRoot.Controller)
 
 local Properties = require(script.Properties)
+local InstanceList = require(script.InstanceList)
 
 local BUTTONS_HEIGHT = 38
 

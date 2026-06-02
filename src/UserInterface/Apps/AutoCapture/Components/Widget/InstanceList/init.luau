@@ -7,10 +7,10 @@ local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
+local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 local Hooks = require(uiRoot.Hooks)
 
 local UnderlineTextButton = require(script.UnderlineTextButton)
-local LucideIconButton = require(script.Parent.LucideIconButton)
 
 local HEADER_HEIGHT = 23
 local ELEMENT_HEIGHT = 23
