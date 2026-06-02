@@ -30,11 +30,14 @@ local function registerEffect<Properties>(kind: string, registration: EffectRegi
 end
 
 local function smoothStep(edge0: number, edge1: number, x: number)
-	if edge1 <= edge0 then
-		return if x <= edge0 then 0 else 1
-	end
 	local t = math.clamp((x - edge0) / (edge1 - edge0), 0, 1)
 	return t * t * (3.0 - 2.0 * t)
+end
+
+local function smoothBand(edge0: number, edge1: number, feather: number, x: number)
+	local lower = 1 - smoothStep(edge0 - feather, edge0 + feather, x)
+	local upper = smoothStep(edge1 - feather, edge1 + feather, x)
+	return math.max(lower, upper)
 end
 
 local function readSignedDistance(svf: buffer, width: number, x: number, y: number)
@@ -100,21 +103,18 @@ registerEffect("Stroke", {
 		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 		local output = buffer.create(imgWidth * imgHeight * 4)
 
+		local softness = properties.softness
+		local thickness = properties.thickness
+
 		for y = 1, imgHeight do
 			for x = 1, imgWidth do
 				local i = x + (y - 1) * imgWidth
 				local j = (i - 1) * 4
 
-				local signedDistance = readSignedDistance(svf, imgWidth, x, y)
-
 				local strokeAlpha = 0
-				if properties.thickness > 0 then
-					strokeAlpha = 1
-						- smoothStep(
-							properties.thickness - properties.softness,
-							properties.thickness + properties.softness,
-							signedDistance
-						)
+				if thickness > 0 then
+					local signedDistance = readSignedDistance(svf, imgWidth, x, y)
+					strokeAlpha = 1 - smoothStep(thickness - softness, thickness + softness, signedDistance)
 				end
 
 				buffer.writeu8(output, j + 0, 255)
