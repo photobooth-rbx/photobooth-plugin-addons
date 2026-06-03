@@ -54,6 +54,7 @@ local function useController()
 end
 
 local function appComponent(props: {})
+	local plugin = StudioComponents.usePlugin() :: Plugin
 	local modelsRef = React.useRef({} :: { [Widget.ListElement]: Model })
 
 	local controller = useController()
