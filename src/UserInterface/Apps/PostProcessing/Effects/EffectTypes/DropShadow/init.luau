@@ -34,21 +34,22 @@ return EffectsRegistry.register("Drop Shadow", {
 
 		local imgSize = inputs.img.Size
 		local imgWidth, imgHeight = imgSize.X, imgSize.Y
-
-		local region = Rect.new(0, 0, imgWidth, imgHeight)
-		local slices = EffectsHelper.sliceIntoStrips(region, scheduler:getActorCount())
-		for _, slice in slices do
-			scheduler:schedule(inputs, properties, slice)
-		end
-
-		local results = scheduler:workAsync()
-
-		local offset = 0
 		local stitched = buffer.create(imgWidth * imgHeight * 4)
-		for _, getBuffer in results do
-			local b = getBuffer()
-			buffer.copy(stitched, offset, b)
-			offset = offset + buffer.len(b)
+
+		if properties.blur + properties.spread > 0 then
+			local region = Rect.new(0, 0, imgWidth, imgHeight)
+			local slices = EffectsHelper.sliceIntoStrips(region, scheduler:getActorCount())
+			for _, slice in slices do
+				scheduler:schedule(inputs, properties, slice)
+			end
+
+			local offset = 0
+			local results = scheduler:workAsync()
+			for _, getBuffer in results do
+				local b = getBuffer()
+				buffer.copy(stitched, offset, b)
+				offset = offset + buffer.len(b)
+			end
 		end
 
 		inputs.output:WritePixelsBuffer(Vector2.zero, imgSize, stitched)
