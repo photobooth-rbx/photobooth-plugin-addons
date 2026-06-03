@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Selection = game:GetService("Selection")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local PhotoboothBindings = require(ReplicatedStorage.PluginRoot.Packages.PhotoboothBindings)
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
@@ -232,7 +233,7 @@ local function Widget(props: Props)
 						Padding = UDim.new(0, 4),
 					}),
 
-					Compose = not isApplying and React.createElement(StudioComponents.MainButton, {
+					Compose = React.createElement(StudioComponents.MainButton, {
 						Size = UDim2.fromScale(1, 1),
 						Text = "Compose",
 						Disabled = disabled,
@@ -261,7 +262,7 @@ local function Widget(props: Props)
 						end,
 					}),
 
-					ComposeAll = not isApplying and React.createElement(StudioComponents.Button, {
+					ComposeAll = React.createElement(StudioComponents.Button, {
 						Size = UDim2.fromScale(1, 1),
 						Text = "Compose All",
 						Disabled = disabled,
@@ -278,16 +279,22 @@ local function Widget(props: Props)
 						OnActivated = function()
 							setIsApplying(true)
 
+							local folder = Instance.new("Folder")
+							for i, editImage in selected.images do
+								local composed = controller:composeImageAsync(editImage)
+								local meshPart = PhotoboothBindings.getMeshPart()
+								meshPart.Name = tostring(i)
+								meshPart.TextureContent = Content.fromObject(composed)
+								meshPart.Parent = folder
+							end
+
+							folder.Name = "Composed"
+							folder.Parent = game:GetService("StarterGui")
+
+							Selection:Set({ folder })
+
 							setIsApplying(false)
 						end,
-					}),
-
-					Cancel = isApplying and React.createElement(StudioComponents.Button, {
-						Size = UDim2.fromScale(1, 1),
-						Text = "Cancel",
-						Disabled = isDialogOpen or not not props.Disabled,
-
-						OnActivated = function() end,
 					}),
 				}),
 

@@ -28,9 +28,6 @@ function PostProcessing.mount(plugin: Plugin, toolbar: PluginToolbar)
 	dock.Title = "Photobooth - Post Processing"
 	dock.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local observableRenderState = Controller.createRenderState()
-	local observableNonRenderState = Controller.createNonRenderState()
-
 	local function App()
 		local dockRef = React.useRef(dock)
 		local isEnabled = Hooks.useRefProperty(dockRef, "Enabled", false)
@@ -49,8 +46,6 @@ function PostProcessing.mount(plugin: Plugin, toolbar: PluginToolbar)
 		end, {})
 
 		return React.createElement(Widget, {
-			ObservableRenderState = observableRenderState,
-			ObservableNonRenderState = observableNonRenderState,
 			Disabled = false,
 		})
 	end

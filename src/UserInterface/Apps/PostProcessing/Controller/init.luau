@@ -261,8 +261,8 @@ function PostProcessingControllerClass.composeImageAsync(self: PostProcessingCon
 				local layer = layers[i]
 				local offset = layer.offset
 
-				local dx = x - layer.offset.X
-				local dy = y - layer.offset.Y
+				local dx = x - offset.X
+				local dy = y - offset.Y
 
 				if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
 					local di = dx + (dy - 1) * imgWidth
