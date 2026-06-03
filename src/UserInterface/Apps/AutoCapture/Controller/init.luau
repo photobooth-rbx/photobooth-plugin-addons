@@ -594,6 +594,10 @@ function AutoCaptureControllerClass.unloadModel(self: AutoCaptureController, mod
 end
 
 function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFrozen: boolean, model: Model)
+	if not self.focusedModel then
+		self.focusShared.dynamicState = table.clone(self.dynamicObservableState:get())
+	end
+
 	self:unfocus()
 
 	local modelState = assert(self.stateByModel[model], "No state exists for the provided model.")
