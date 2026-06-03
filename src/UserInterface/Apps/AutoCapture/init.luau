@@ -119,7 +119,7 @@ local function appComponent(props: {})
 						local prevFocusedModel = controller:getFocusedModel()
 
 						for i, model in controller:getModels() do
-							controller:focus(true, model)
+							controller:focusAsync(true, model)
 							Photobooth.yieldUntilNextFrame()
 
 							local result = controller:capture()
@@ -137,7 +137,7 @@ local function appComponent(props: {})
 						SelectionService:Set({ folder })
 
 						if prevFocusedModel then
-							controller:focus(false, prevFocusedModel)
+							controller:focusAsync(false, prevFocusedModel)
 						else
 							controller:unfocus()
 						end
@@ -156,7 +156,7 @@ local function appComponent(props: {})
 
 				local model = element and modelsRef.current[element]
 				if model then
-					controller:focus(false, model)
+					controller:focusAsync(false, model)
 				end
 			end,
 			OnListElementAdded = function(element)

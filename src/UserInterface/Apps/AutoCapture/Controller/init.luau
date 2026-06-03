@@ -221,7 +221,7 @@ function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureControlle
 		end
 	end))
 
-	cleanupTrove:Add(UserInputService.InputChanged:Connect(function(input, gameProcessed)
+	cleanupTrove:Add(UserInputService.InputChanged:Connect(function(input, _gameProcessed)
 		if self.isInputFrozen then
 			return
 		end
@@ -416,7 +416,7 @@ function AutoCaptureControllerClass._hookFree(self: AutoCaptureController)
 		return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
 	end
 
-	cleanupTrove:Add(UserInputService.InputChanged:Connect(function(input, gameProcessed)
+	cleanupTrove:Add(UserInputService.InputChanged:Connect(function(input, _gameProcessed)
 		if self.isInputFrozen then
 			return
 		end
@@ -593,7 +593,7 @@ function AutoCaptureControllerClass.unloadModel(self: AutoCaptureController, mod
 	end
 end
 
-function AutoCaptureControllerClass.focus(self: AutoCaptureController, inputFrozen: boolean, model: Model)
+function AutoCaptureControllerClass.focusAsync(self: AutoCaptureController, inputFrozen: boolean, model: Model)
 	if not self.focusedModel then
 		self.focusShared.dynamicState = table.clone(self.dynamicObservableState:get())
 	end

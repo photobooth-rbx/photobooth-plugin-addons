@@ -164,7 +164,7 @@ function PointCloudClass._watchPart(self: PointCloud, part: BasePart): Watcher
 		end)
 	end
 
-	local function getPointCloud()
+	local function getWatchedPointCloud()
 		if meshData and self.tryUseMeshVertices then
 			local partCF = part.CFrame
 			local scale = part.Size / meshData.naturalSize
@@ -179,7 +179,7 @@ function PointCloudClass._watchPart(self: PointCloud, part: BasePart): Watcher
 
 	return {
 		part = part,
-		getPointCloud = getPointCloud,
+		getPointCloud = getWatchedPointCloud,
 		cleanup = function()
 			trove:Destroy()
 		end,
