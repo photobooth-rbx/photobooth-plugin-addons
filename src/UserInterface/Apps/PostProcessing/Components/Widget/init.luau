@@ -124,11 +124,6 @@ local function Widget(props: Props)
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, -ADD_EFFECT_BUTTON_HEIGHT),
 					}, {
-						Dots = isApplying and React.createElement(StudioComponents.LoadingDots, {
-							Size = UDim2.fromScale(1, 1),
-							ZIndex = 2,
-						}),
-
 						EffectsList = React.createElement(EffectsList, {
 							Size = UDim2.fromScale(1, 1),
 							Controller = controller,
@@ -340,7 +335,7 @@ local function Widget(props: Props)
 			}),
 		}),
 
-		Overlay = isDialogOpen and React.createElement("ImageButton", {
+		Overlay = (isDialogOpen or isApplying) and React.createElement("ImageButton", {
 			BorderSizePixel = 0,
 			BackgroundTransparency = 0.7,
 			BackgroundColor3 = Color3.new(0, 0, 0),
@@ -348,7 +343,11 @@ local function Widget(props: Props)
 			AutoButtonColor = false,
 			Image = "",
 		}, {
-			Dialog = React.createElement(EffectDialog, {
+			Dots = isApplying and React.createElement(StudioComponents.LoadingDots, {
+				Size = UDim2.fromScale(1, 1),
+			}),
+
+			Dialog = (not isApplying and isDialogOpen) and React.createElement(EffectDialog, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromOffset(220, 120),

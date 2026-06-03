@@ -5,12 +5,31 @@ local React = require(pluginRoot.Packages.React)
 
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local CreateStory = require(uiRoot.Stories.CreateStory)
+local Hooks = require(uiRoot.Hooks)
+
+local appRoot = script:FindFirstAncestor("PostProcessing")
+local Controller = require(appRoot.Controller)
 
 local Widget = require(script.Parent)
+
+local function useController()
+	local controller = Hooks.useConstant(function()
+		return Controller.new()
+	end)
+
+	React.useEffect(function()
+		return function()
+			controller:Destroy()
+		end
+	end, {})
+
+	return controller
+end
 
 local function Component(props: { Size: UDim2 })
 	local theme = StudioComponents.useTheme()
 	local disabled, _setDisabled = React.useState(false)
+	local controller = useController()
 
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -20,6 +39,7 @@ local function Component(props: { Size: UDim2 })
 		BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 	}, {
 		Core = React.createElement(Widget, {
+			Controller = controller,
 			Disabled = disabled,
 		}),
 	})
