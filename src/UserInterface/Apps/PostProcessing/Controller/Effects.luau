@@ -97,7 +97,7 @@ registerEffect("Stroke", {
 	playerCreated = true,
 	create = function()
 		local properties: StrokeProperties = {
-			thickness = 0,
+			thickness = 5,
 			softness = 1,
 			clipped = false,
 			transparency = 0,
