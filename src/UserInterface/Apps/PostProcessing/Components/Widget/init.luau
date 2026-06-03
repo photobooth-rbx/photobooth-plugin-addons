@@ -33,17 +33,19 @@ local function useSelectedEditImages()
 	local selected = Hooks.useSelection()
 	local index, setIndex = React.useState(1)
 
-	local filtered = React.useMemo(function()
+	local filtered, names = React.useMemo(function()
 		local editImages = {}
+		local nameByEditImage = {}
 		for _, instance in selected do
 			if instance:IsA("MeshPart") then
 				local editImage = instance.TextureContent.Object
 				if editImage and editImage:IsA("EditableImage") then
 					table.insert(editImages, editImage)
+					nameByEditImage[editImage] = instance.Name
 				end
 			end
 		end
-		return editImages
+		return editImages, nameByEditImage
 	end, { selected })
 
 	React.useEffect(function()
@@ -52,6 +54,7 @@ local function useSelectedEditImages()
 
 	return {
 		images = filtered,
+		nameByImage = names,
 		count = #filtered,
 		index = index,
 		setIndex = setIndex,
@@ -239,6 +242,7 @@ local function Widget(props: Props)
 							if editImage then
 								local composed = controller:composeImageAsync(editImage)
 								local meshPart = PhotoboothBindings.getMeshPart()
+								meshPart.Name = selected.nameByImage[editImage] or "Composition"
 								meshPart.TextureContent = Content.fromObject(composed)
 								meshPart.Parent = game:GetService("StarterGui")
 							end
@@ -268,7 +272,7 @@ local function Widget(props: Props)
 							for i, editImage in selected.images do
 								local composed = controller:composeImageAsync(editImage)
 								local meshPart = PhotoboothBindings.getMeshPart()
-								meshPart.Name = tostring(i)
+								meshPart.Name = selected.nameByImage[editImage] or `{i}_Composition`
 								meshPart.TextureContent = Content.fromObject(composed)
 								meshPart.Parent = folder
 							end
