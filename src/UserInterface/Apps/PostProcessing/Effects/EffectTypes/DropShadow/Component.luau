@@ -2,16 +2,14 @@ local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
 local React = require(pluginRoot.Packages.React)
 
-local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
-local Controller = require(postProcessingRoot.Controller)
+local effectsRoot = script:FindFirstAncestor("Effects")
+local EffectsRegistry = require(effectsRoot.EffectsRegistry)
+local DropShadow = require(script.Parent)
 
-export type Props = {
-	Effect: Controller.StrokeEffect,
-	UpdateEffect: ((Controller.StrokeEffect) -> Controller.StrokeEffect?) -> (),
-	Disabled: boolean?,
-}
+type DropShadowEffect = EffectsRegistry.Effect<DropShadow.Properties>
+export type Props = EffectsRegistry.EffectProps<DropShadow.Properties>
 
-local function StrokeEffect(props: Props)
+local function DropShadowEffect(props: Props)
 	return React.createElement(React.Fragment, nil, {
 		UIListLayout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
@@ -19,16 +17,16 @@ local function StrokeEffect(props: Props)
 			Padding = UDim.new(0, 0),
 		}),
 
-		Thickness = React.createElement(StudioProperties.Number, {
-			FieldName = "Thickness",
+		Blur = React.createElement(StudioProperties.Number, {
+			FieldName = "Blur",
 
 			Step = 1,
 			Min = 0,
 
-			Value = props.Effect.properties.thickness,
+			Value = props.Effect.properties.blur,
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
-					layer.properties.thickness = newValue
+					layer.properties.blur = newValue
 					layer.renderTicket += 1
 					return layer
 				end)
@@ -38,16 +36,16 @@ local function StrokeEffect(props: Props)
 			LayoutOrder = 1,
 		}),
 
-		Softness = React.createElement(StudioProperties.Number, {
-			FieldName = "Softness",
+		Spread = React.createElement(StudioProperties.Number, {
+			FieldName = "Spread",
 
 			Step = 1,
 			Min = 0,
 
-			Value = props.Effect.properties.softness,
+			Value = props.Effect.properties.spread,
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
-					layer.properties.softness = newValue
+					layer.properties.spread = newValue
 					layer.renderTicket += 1
 					return layer
 				end)
@@ -76,10 +74,11 @@ local function StrokeEffect(props: Props)
 		Offset = React.createElement(StudioProperties.Vector2, {
 			FieldName = "Offset",
 
-			Value = props.Effect.properties.offset,
+			Value = props.Effect.properties.shadowOffset,
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
-					layer.properties.offset = newValue
+					layer.properties.shadowOffset = newValue
+					layer.renderTicket += 1
 					return layer
 				end)
 			end,
@@ -123,4 +122,4 @@ local function StrokeEffect(props: Props)
 	})
 end
 
-return StrokeEffect
+return DropShadowEffect

@@ -2,14 +2,12 @@ local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
 local React = require(pluginRoot.Packages.React)
 
-local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
-local Controller = require(postProcessingRoot.Controller)
+local effectsRoot = script:FindFirstAncestor("Effects")
+local EffectsRegistry = require(effectsRoot.EffectsRegistry)
+local BaseImage = require(script.Parent)
 
-export type Props = {
-	Effect: Controller.BaseImageEffect,
-	UpdateEffect: ((Controller.BaseImageEffect) -> Controller.BaseImageEffect?) -> (),
-	Disabled: boolean?,
-}
+type BaseImageEffect = EffectsRegistry.Effect<BaseImage.Properties>
+export type Props = EffectsRegistry.EffectProps<BaseImage.Properties>
 
 local function BaseImageEffect(props: Props)
 	return React.createElement(React.Fragment, nil, {

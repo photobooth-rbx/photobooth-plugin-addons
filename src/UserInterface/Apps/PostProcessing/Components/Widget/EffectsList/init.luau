@@ -6,11 +6,9 @@ local React = require(pluginRoot.Packages.React)
 
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
+local Effects = require(postProcessingRoot.Effects)
 
 local GroupHeader = require(script.GroupHeader)
-local BaseImageEffect = require(script.Components.BaseImageLayer)
-local StrokeEffect = require(script.Components.StrokeLayer)
-local DropShadowEffect = require(script.Components.DropShadowLayer)
 
 local SCROLL_GRADIENT_INSET_HEIGHT = 22
 
@@ -28,22 +26,14 @@ export type Props = {
 
 type EffectProps = {
 	Controller: Controller.PostProcessingController,
-	ObservableEffect: ObservableValue.ObservableValue<Controller.Effect>,
+	ObservableEffect: ObservableValue.ObservableValue<Controller.Effect<any>>,
 	LayoutOrder: number,
 	Disabled: boolean?,
 }
 
 local function EffectComponent(props: EffectProps)
 	local effect, updateEffect = props.ObservableEffect:use()
-
-	local component: React.FC<any>
-	if effect.kind == "Base Image" then
-		component = BaseImageEffect
-	elseif effect.kind == "Stroke" then
-		component = StrokeEffect
-	elseif effect.kind == "Drop Shadow" then
-		component = DropShadowEffect
-	end
+	local component = Effects.getReactComponentByKind(effect.kind)
 
 	return React.createElement(GroupHeader, {
 		GroupName = effect.name,

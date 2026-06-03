@@ -13,19 +13,14 @@ local SignedVectorField = require(script.SignedVectorField)
 
 export type Layer = LayerComposer.Layer
 
-type GenericEffect<Kind, Properties> = {
-	kind: Kind,
+export type Effect<Properties> = {
+	kind: string,
 	name: string,
 	index: number,
 	playerCreated: boolean,
 	renderTicket: number,
 	properties: Properties,
 }
-
-export type BaseImageEffect = GenericEffect<"Base Image", Effects.BaseImageProperties>
-export type StrokeEffect = GenericEffect<"Stroke", Effects.StrokeProperties>
-export type DropShadowEffect = GenericEffect<"Drop Shadow", Effects.DropShadowProperties>
-export type Effect = BaseImageEffect | StrokeEffect | DropShadowEffect
 
 -- Class
 
@@ -40,7 +35,7 @@ export type PostProcessingController = typeof(setmetatable(
 		editImage: EditableImage?,
 		imageTrove: Trove.Trove,
 
-		observableEffects: ObservableValue.ObservableValue<{ ObservableValue.ObservableValue<Effect> }>,
+		observableEffects: ObservableValue.ObservableValue<{ ObservableValue.ObservableValue<Effect<any>> }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 	},
 	PostProcessingControllerClass
@@ -128,7 +123,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			svfEdit:Destroy()
 		end)
 
-		local function watchEffect(observedEffect: ObservableValue.ObservableValue<Effect>)
+		local function watchEffect(observedEffect: ObservableValue.ObservableValue<Effect<any>>)
 			local renderReady = Future.new()
 
 			local effect = observedEffect:get()
