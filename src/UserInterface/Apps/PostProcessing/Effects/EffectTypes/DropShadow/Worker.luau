@@ -1,4 +1,3 @@
---!native
 --!optimize 2
 
 local effectsRoot = script:FindFirstAncestor("Effects")
@@ -15,13 +14,17 @@ export type Properties = {
 	color: Color3,
 }
 
+@native
 local function worker(inputs: EffectsRegistry.ImageInputs, properties: Properties, crop: Rect)
+	local imgSize = inputs.svf.Size
+	local imgWidth, imgHeight = imgSize.X, imgSize.Y
+
 	local cropSize = crop.Max - crop.Min
 	local cropWidth, cropHeight = cropSize.X, cropSize.Y
 	local minX, maxX = crop.Min.X, crop.Max.X
 	local minY, maxY = crop.Min.Y, crop.Max.Y
 
-	local svf = inputs.svf:ReadPixelsBuffer(crop.Min, cropSize)
+	local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 	local composed = buffer.create(cropWidth * cropHeight * 4)
 
 	for y = minY + 1, maxY do
@@ -33,12 +36,12 @@ local function worker(inputs: EffectsRegistry.ImageInputs, properties: Propertie
 			local shadowAlpha = 0
 			local dx = math.floor(x - properties.shadowOffset.X)
 			local dy = math.floor(y - properties.shadowOffset.Y)
-			if dx > 0 and dx <= cropWidth and dy > 0 and dy <= cropHeight then
-				local signedDistance = EffectsHelper.readSignedDistance(svf, cropWidth, dx, dy)
+			if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
+				local signedDistance = EffectsHelper.readSignedDistance(svf, imgWidth, dx, dy)
 				local edgeDistance = signedDistance - properties.spread
 				shadowAlpha = 1 - EffectsHelper.smoothStep(-properties.blur, properties.blur, edgeDistance)
 
-				if properties.clipped and EffectsHelper.readSignedDistance(svf, cropWidth, x, y) < -1 then
+				if properties.clipped and EffectsHelper.readSignedDistance(svf, imgWidth, x, y) < -1 then
 					shadowAlpha = 0
 				end
 			end

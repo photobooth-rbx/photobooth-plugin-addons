@@ -1,8 +1,8 @@
---!native
 --!optimize 2
 
 local Types = require(script.Parent.Types)
 
+@native
 local function worker(layers: { Types.Layer }, crop: Rect)
 	local cropSize = crop.Max - crop.Min
 	local cropWidth, cropHeight = cropSize.X, cropSize.Y

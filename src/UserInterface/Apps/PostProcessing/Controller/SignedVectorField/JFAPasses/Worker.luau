@@ -1,6 +1,6 @@
---!native
 --!optimize 2
 
+@native
 local function worker(seedbed: EditableImage, voronoi: EditableImage, crop: Rect, step: number)
 	local seedbedSize = voronoi.Size
 	local seedbedWidth, seedbedHeight = seedbedSize.X, seedbedSize.Y
