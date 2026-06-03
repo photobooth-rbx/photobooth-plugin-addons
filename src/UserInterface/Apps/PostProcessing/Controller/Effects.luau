@@ -87,6 +87,7 @@ registerEffect("Base Image", {
 export type StrokeProperties = {
 	thickness: number,
 	softness: number,
+	clipped: boolean,
 	transparency: number,
 	offset: Vector2,
 	color: Color3,
@@ -98,6 +99,7 @@ registerEffect("Stroke", {
 		local properties: StrokeProperties = {
 			thickness = 0,
 			softness = 1,
+			clipped = false,
 			transparency = 0,
 			offset = Vector2.zero,
 			color = Color3.new(0, 0, 0),
@@ -122,6 +124,10 @@ registerEffect("Stroke", {
 				if thickness > 0 then
 					local signedDistance = readSignedDistance(svf, imgWidth, x, y)
 					strokeAlpha = 1 - smoothStep(thickness - softness, thickness + softness, signedDistance)
+
+					if properties.clipped and signedDistance < -1 then
+						strokeAlpha = 0
+					end
 				end
 
 				buffer.writeu8(output, j + 0, 255)
@@ -138,7 +144,7 @@ registerEffect("Stroke", {
 export type DropShadowProperties = {
 	blur: number,
 	spread: number,
-	maskImage: boolean,
+	clipped: boolean,
 	shadowOffset: Vector2,
 	transparency: number,
 	offset: Vector2,
@@ -151,7 +157,7 @@ registerEffect("Drop Shadow", {
 		local properties: DropShadowProperties = {
 			blur = 10,
 			spread = 10,
-			maskImage = false,
+			clipped = false,
 			shadowOffset = Vector2.new(20, 20),
 			transparency = 0.6,
 			offset = Vector2.zero,
@@ -181,7 +187,7 @@ registerEffect("Drop Shadow", {
 						local edgeDistance = signedDistance - properties.spread
 						shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
 
-						if properties.maskImage and readSignedDistance(svf, imgWidth, x, y) < -1 then
+						if properties.clipped and readSignedDistance(svf, imgWidth, x, y) < -1 then
 							shadowAlpha = 0
 						end
 					end

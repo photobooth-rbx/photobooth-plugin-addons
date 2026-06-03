@@ -57,13 +57,13 @@ local function DropShadowEffect(props: Props)
 			LayoutOrder = 2,
 		}),
 
-		MaskImage = React.createElement(StudioProperties.Boolean, {
-			FieldName = "Mask Image",
+		Clipped = React.createElement(StudioProperties.Boolean, {
+			FieldName = "Clipped",
 
-			Value = props.Effect.properties.maskImage,
+			Value = props.Effect.properties.clipped,
 			OnValueSubmitted = function(newValue)
 				props.UpdateEffect(function(layer)
-					layer.properties.maskImage = newValue
+					layer.properties.clipped = newValue
 					layer.renderTicket += 1
 					return layer
 				end)

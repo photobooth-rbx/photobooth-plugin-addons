@@ -57,6 +57,22 @@ local function StrokeEffect(props: Props)
 			LayoutOrder = 2,
 		}),
 
+		Clipped = React.createElement(StudioProperties.Boolean, {
+			FieldName = "Clipped",
+
+			Value = props.Effect.properties.clipped,
+			OnValueSubmitted = function(newValue)
+				props.UpdateEffect(function(layer)
+					layer.properties.clipped = newValue
+					layer.renderTicket += 1
+					return layer
+				end)
+			end,
+
+			Disabled = props.Disabled,
+			LayoutOrder = 3,
+		}),
+
 		Offset = React.createElement(StudioProperties.Vector2, {
 			FieldName = "Offset",
 
@@ -69,7 +85,7 @@ local function StrokeEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 3,
+			LayoutOrder = 4,
 		}),
 
 		Transparency = React.createElement(StudioProperties.Number, {
@@ -87,7 +103,7 @@ local function StrokeEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 4,
+			LayoutOrder = 5,
 		}),
 
 		Color = React.createElement(StudioProperties.Color3, {
@@ -102,7 +118,7 @@ local function StrokeEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 5,
+			LayoutOrder = 6,
 		}),
 	})
 end
