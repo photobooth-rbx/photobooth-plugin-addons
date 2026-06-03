@@ -70,7 +70,7 @@ registerEffect("Base Image", {
 	playerCreated = false,
 	create = function()
 		local properties: BaseImageProperties = {
-			transparency = 0.7,
+			transparency = 0,
 			offset = Vector2.zero,
 			color = Color3.new(1, 1, 1),
 		}
@@ -148,7 +148,7 @@ registerEffect("Drop Shadow", {
 		local properties: DropShadowProperties = {
 			blur = 10,
 			spread = 10,
-			maskImage = false,
+			maskImage = true,
 			shadowOffset = Vector2.zero,
 			transparency = 0,
 			offset = Vector2.zero,
@@ -159,8 +159,9 @@ registerEffect("Drop Shadow", {
 	render = function(inputs, properties)
 		local imgSize = inputs.img.Size
 		local imgWidth, imgHeight = imgSize.X, imgSize.Y
-		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 
+		local img = inputs.img:ReadPixelsBuffer(Vector2.zero, imgSize)
+		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 		local output = buffer.create(imgWidth * imgHeight * 4)
 		local maxSpread = properties.spread + properties.blur
 
@@ -175,18 +176,22 @@ registerEffect("Drop Shadow", {
 					local dx = math.floor(x - properties.shadowOffset.X)
 					local dy = math.floor(y - properties.shadowOffset.Y)
 					if dx > 0 and dx <= imgWidth and dy > 0 and dy <= imgHeight then
-						local signedDistance = readSignedDistance(svf, imgWidth, x, y)
-						if properties.maskImage and signedDistance < 0 then
-							shadowAlpha = smoothStep(-properties.blur, properties.blur, signedDistance)
-						else
-							local edgeDistance = readSignedDistance(svf, imgWidth, dx, dy) - properties.spread
-							shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
+						local dSignedDistance = readSignedDistance(svf, imgWidth, dx, dy)
+						local edgeDistance = dSignedDistance - properties.spread
+						shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
+
+						if shadowAlpha > 0 then
+							local alpha = buffer.readu8(img, j + 3)
+							if properties.maskImage and alpha == 255 then
+								shadowAlpha = 0
+							end
 						end
 					end
 
 					buffer.writeu8(output, j + 0, 255)
 					buffer.writeu8(output, j + 1, 255)
 					buffer.writeu8(output, j + 2, 255)
+
 					buffer.writeu8(output, j + 3, 255 * shadowAlpha)
 				end
 			end

@@ -5,7 +5,7 @@ local AssetService = game:GetService("AssetService") :: AssetService
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
 
-local PLUS_ONE = assert(script.Parent:GetAttribute("PlusOne") :: boolean?)
+local PLUS_ONE = not not script.Parent:GetAttribute("PlusOne")
 local ACTOR_COUNT = assert(script.Parent:GetAttribute("ActorCount") :: number?)
 
 type WorkerAction = typeof(require(script.Worker))

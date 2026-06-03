@@ -57,6 +57,22 @@ local function DropShadowEffect(props: Props)
 			LayoutOrder = 2,
 		}),
 
+		MaskImage = React.createElement(StudioProperties.Boolean, {
+			FieldName = "Mask Image",
+
+			Value = props.Effect.properties.maskImage,
+			OnValueSubmitted = function(newValue)
+				props.UpdateEffect(function(layer)
+					layer.properties.maskImage = newValue
+					layer.renderTicket += 1
+					return layer
+				end)
+			end,
+
+			Disabled = props.Disabled,
+			LayoutOrder = 2,
+		}),
+
 		Offset = React.createElement(StudioProperties.Vector2, {
 			FieldName = "Offset",
 
