@@ -1,7 +1,5 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Selection = game:GetService("Selection")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local PhotoboothBindings = require(ReplicatedStorage.PluginRoot.Packages.PhotoboothBindings)
+local PhotoboothBindings = require(pluginRoot.Packages.PhotoboothBindings)
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
@@ -291,7 +289,7 @@ local function Widget(props: Props)
 							folder.Name = "Composed"
 							folder.Parent = game:GetService("StarterGui")
 
-							Selection:Set({ folder })
+							game:GetService("Selection"):Set({ folder })
 
 							setIsApplying(false)
 						end,
