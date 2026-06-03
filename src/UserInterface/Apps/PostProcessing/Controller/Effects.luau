@@ -179,8 +179,7 @@ registerEffect("Drop Shadow", {
 						local edgeDistance = signedDistance - properties.spread
 						shadowAlpha = 1 - smoothStep(-properties.blur, properties.blur, edgeDistance)
 
-						local alpha = buffer.readu8(img, j + 3)
-						if properties.maskImage and alpha == 255 then
+						if properties.maskImage and readSignedDistance(svf, imgWidth, x, y) < -1 then
 							shadowAlpha = 0
 						end
 					end
