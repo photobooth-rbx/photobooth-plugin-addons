@@ -9,23 +9,8 @@ local ButtonIcon = require(uiRoot.ButtonIcon)
 local Hooks = require(uiRoot.Hooks)
 
 local Widget = require(script.Components.Widget)
-local Controller = require(script.Controller)
 
 local PostProcessing = {}
-
-local function useController()
-	local controller = Hooks.useConstant(function()
-		return Controller.new()
-	end)
-
-	React.useEffect(function()
-		return function()
-			controller:Destroy()
-		end
-	end, {})
-
-	return controller
-end
 
 function PostProcessing.mount(plugin: Plugin, toolbar: PluginToolbar)
 	-- stylua: ignore
@@ -59,10 +44,7 @@ function PostProcessing.mount(plugin: Plugin, toolbar: PluginToolbar)
 			end
 		end, {})
 
-		local controller = useController()
-
-		return React.createElement(Widget, {
-			Controller = controller,
+		return isEnabled and React.createElement(Widget, {
 			Disabled = false,
 		})
 	end
