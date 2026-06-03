@@ -13,6 +13,20 @@ local Controller = require(script.Controller)
 
 local PostProcessing = {}
 
+local function useController()
+	local controller = Hooks.useConstant(function()
+		return Controller.new()
+	end)
+
+	React.useEffect(function()
+		return function()
+			controller:Destroy()
+		end
+	end, {})
+
+	return controller
+end
+
 function PostProcessing.mount(plugin: Plugin, toolbar: PluginToolbar)
 	-- stylua: ignore
 	local button = toolbar:CreateButton(
@@ -45,7 +59,10 @@ function PostProcessing.mount(plugin: Plugin, toolbar: PluginToolbar)
 			end
 		end, {})
 
+		local controller = useController()
+
 		return React.createElement(Widget, {
+			Controller = controller,
 			Disabled = false,
 		})
 	end

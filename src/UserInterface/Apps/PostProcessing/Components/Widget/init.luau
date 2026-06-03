@@ -25,22 +25,9 @@ local RIGHT_ICON = assert(Lucide.GetAsset("chevron-right", 16))
 local LEFT_ICON = assert(Lucide.GetAsset("chevron-left", 16))
 
 export type Props = {
+	Controller: Controller.PostProcessingController,
 	Disabled: boolean?,
 }
-
-local function useController()
-	local controller = Hooks.useConstant(function()
-		return Controller.new()
-	end)
-
-	React.useEffect(function()
-		return function()
-			controller:Destroy()
-		end
-	end, {})
-
-	return controller
-end
 
 local function useSelectedEditImages()
 	local selected = Hooks.useSelection()
@@ -83,7 +70,7 @@ end
 local function Widget(props: Props)
 	local theme = StudioComponents.useTheme()
 
-	local controller = useController()
+	local controller = props.Controller
 	local selected = useSelectedEditImages()
 
 	local layers = controller:useLayers()

@@ -1,7 +1,6 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 
-local ObservableValue = require(ReplicatedStorage.PluginRoot.Utilities.ObservableValue)
+local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
 local React = require(pluginRoot.Packages.React)
 

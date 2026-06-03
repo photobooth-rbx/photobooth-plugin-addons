@@ -39,6 +39,194 @@ local function hideWorkspace(callback: () -> ())
 	end
 end
 
+local function useController()
+	local controller = Hooks.useConstant(function()
+		return Controller.new()
+	end)
+
+	React.useEffect(function()
+		return function()
+			controller:Destroy()
+		end
+	end, {})
+
+	return controller
+end
+
+local function appComponent(props: {})
+	local modelsRef = React.useRef({} :: { [Widget.ListElement]: Model })
+
+	local controller = useController()
+	local static = controller.staticObservableState:use()
+	local dynamic = controller.dynamicObservableState:use()
+
+	local captureRect, setCaptureRect = React.useState(Rect.new(0, 0, 0, 0))
+	local disabled, setDisabled = React.useState(false)
+
+	React.useEffect(function()
+		return function()
+			controller:unfocus()
+
+			for element, _model in modelsRef.current do
+				controller:unloadModel(modelsRef.current[element])
+				modelsRef.current[element]:Destroy()
+				modelsRef.current[element] = nil
+			end
+		end
+	end, {})
+
+	return React.createElement(React.Fragment, nil, {
+		Widget = React.createElement(Widget, {
+			OnCapture = function()
+				setDisabled(true)
+
+				local success, err: string? = pcall(function()
+					assert(Photobooth.isConnected(), "Photobooth not detected.")
+					assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
+
+					hideWorkspace(function()
+						local focusedModel = controller:getFocusedModel()
+						if focusedModel then
+							local result = controller:capture()
+							if result then
+								local captureName = (focusedModel:GetAttribute("CaptureName") :: string?) or "Capture"
+								result.Name = captureName
+								result.Parent = StarterGui
+
+								plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
+								SelectionService:Set({ result })
+							end
+						end
+					end)
+				end)
+
+				if not success then
+					warn(err)
+				end
+
+				setDisabled(false)
+			end,
+			OnCaptureAll = function()
+				setDisabled(true)
+
+				local success, err: string? = pcall(function()
+					assert(Photobooth.isConnected(), "Photobooth not detected.")
+					assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
+
+					hideWorkspace(function()
+						local folder = Instance.new("Folder")
+						local prevFocusedModel = controller:getFocusedModel()
+
+						for i, model in controller:getModels() do
+							controller:focus(true, model)
+							Photobooth.yieldUntilNextFrame()
+
+							local result = controller:capture()
+							if result then
+								local captureName = (model:GetAttribute("CaptureName") :: string?) or "Capture"
+								result.Name = `{i}_{captureName}`
+								result.Parent = folder
+							end
+						end
+
+						folder.Name = "AutoCaptures"
+						folder.Parent = StarterGui
+
+						plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
+						SelectionService:Set({ folder })
+
+						if prevFocusedModel then
+							controller:focus(false, prevFocusedModel)
+						else
+							controller:unfocus()
+						end
+					end)
+				end)
+
+				if not success then
+					warn(err)
+				end
+
+				setDisabled(false)
+			end,
+
+			OnListElementSelected = function(element)
+				controller:unfocus()
+
+				local model = element and modelsRef.current[element]
+				if model then
+					controller:focus(false, model)
+				end
+			end,
+			OnListElementAdded = function(element)
+				if not modelsRef.current[element] then
+					local archivable = element.instance.Archivable
+					element.instance.Archivable = true
+					local pvInstanceCopy = element.instance:Clone()
+					element.instance.Archivable = archivable
+					pvInstanceCopy.Archivable = archivable
+					local model = Instance.new("Model")
+					model.Archivable = false
+					pvInstanceCopy.Parent = model
+
+					local aabbCenterCF, _aabbSize = model:GetBoundingBox()
+					model.Name = "AutoCaptureModel"
+					model.WorldPivot = aabbCenterCF * pvInstanceCopy:GetPivot().Rotation:Inverse()
+					model:PivotTo(CFrame.identity)
+					model:SetAttribute("CaptureName", pvInstanceCopy.Name)
+
+					modelsRef.current[element] = model
+					controller:loadModel(modelsRef.current[element])
+				end
+			end,
+			OnListElementRemoved = function(element)
+				if modelsRef.current[element] then
+					controller:unloadModel(modelsRef.current[element])
+					modelsRef.current[element]:Destroy()
+					modelsRef.current[element] = nil
+				end
+			end,
+
+			Controller = controller,
+			CaptureRect = captureRect,
+			Disabled = disabled,
+		}),
+
+		FitterWindow = ReactRoblox.createPortal(
+			React.createElement("ScreenGui", {
+				Name = "FitterWindow",
+				Archivable = false,
+				IgnoreGuiInset = true,
+				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+			}, {
+				Core = React.createElement(FitterWindow, {
+					IsFullScreen = dynamic.isFullScreen,
+					Resolution = dynamic.captureSize,
+					AnimationTrack = static.animationTrack,
+
+					PaddingVisible = dynamic.fitType ~= "Free" and dynamic.paddingVisible,
+					PaddingTop = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingTop,
+					PaddingBottom = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingBottom,
+					PaddingLeft = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingLeft,
+					PaddingRight = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingRight,
+
+					OnCaptureRectChanged = function(newRect)
+						controller:setCaptureRect(newRect)
+						setCaptureRect(newRect)
+					end,
+
+					OnPaddedRectChanged = function(newRect)
+						controller:setPaddedRect(newRect)
+					end,
+
+					Disabled = disabled,
+				}),
+			}),
+			CoreGui
+		),
+	})
+end
+
 function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 	-- stylua: ignore
 	local button = toolbar:CreateButton(
@@ -54,17 +242,8 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 	dock.Title = "Photobooth - Auto Capture"
 	dock.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local controller = Controller.new()
-
 	local function App()
 		local dockRef = React.useRef(dock)
-		local modelsRef = React.useRef({} :: { [Widget.ListElement]: Model })
-
-		local static = controller.staticObservableState:use()
-		local dynamic = controller.dynamicObservableState:use()
-
-		local captureRect, setCaptureRect = React.useState(Rect.new(0, 0, 0, 0))
-		local disabled, setDisabled = React.useState(false)
 		local isEnabled = Hooks.useRefProperty(dockRef, "Enabled", false)
 
 		React.useEffect(function()
@@ -77,173 +256,10 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 			end
 		end, {})
 
-		React.useEffect(function()
-			if not isEnabled then
-				controller:unfocus()
-
-				for element, _model in modelsRef.current do
-					controller:unloadModel(modelsRef.current[element])
-					modelsRef.current[element]:Destroy()
-					modelsRef.current[element] = nil
-				end
-			end
-		end, { isEnabled })
-
 		dock.Enabled = isEnabled
 		button:SetActive(isEnabled)
 
-		return isEnabled
-			and React.createElement(React.Fragment, nil, {
-				Widget = React.createElement(Widget, {
-					OnCapture = function()
-						setDisabled(true)
-
-						local success, err: string? = pcall(function()
-							assert(Photobooth.isConnected(), "Photobooth not detected.")
-							assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
-
-							hideWorkspace(function()
-								local focusedModel = controller:getFocusedModel()
-								if focusedModel then
-									local result = controller:capture()
-									if result then
-										local captureName = (focusedModel:GetAttribute("CaptureName") :: string?)
-											or "Capture"
-										result.Name = captureName
-										result.Parent = StarterGui
-
-										plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
-										SelectionService:Set({ result })
-									end
-								end
-							end)
-						end)
-
-						if not success then
-							warn(err)
-						end
-
-						setDisabled(false)
-					end,
-					OnCaptureAll = function()
-						setDisabled(true)
-
-						local success, err: string? = pcall(function()
-							assert(Photobooth.isConnected(), "Photobooth not detected.")
-							assert(Photobooth.isCompatible(), "Photobooth version is incompatible.")
-
-							hideWorkspace(function()
-								local folder = Instance.new("Folder")
-								local prevFocusedModel = controller:getFocusedModel()
-
-								for i, model in controller:getModels() do
-									controller:focus(true, model)
-									Photobooth.yieldUntilNextFrame()
-
-									local result = controller:capture()
-									if result then
-										local captureName = (model:GetAttribute("CaptureName") :: string?) or "Capture"
-										result.Name = `{i}_{captureName}`
-										result.Parent = folder
-									end
-								end
-
-								folder.Name = "AutoCaptures"
-								folder.Parent = StarterGui
-
-								plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
-								SelectionService:Set({ folder })
-
-								if prevFocusedModel then
-									controller:focus(false, prevFocusedModel)
-								else
-									controller:unfocus()
-								end
-							end)
-						end)
-
-						if not success then
-							warn(err)
-						end
-
-						setDisabled(false)
-					end,
-
-					OnListElementSelected = function(element)
-						controller:unfocus()
-
-						local model = element and modelsRef.current[element]
-						if model then
-							controller:focus(false, model)
-						end
-					end,
-					OnListElementAdded = function(element)
-						if not modelsRef.current[element] then
-							local archivable = element.instance.Archivable
-							element.instance.Archivable = true
-							local pvInstanceCopy = element.instance:Clone()
-							element.instance.Archivable = archivable
-							pvInstanceCopy.Archivable = archivable
-							local model = Instance.new("Model")
-							model.Archivable = false
-							pvInstanceCopy.Parent = model
-
-							local aabbCenterCF, _aabbSize = model:GetBoundingBox()
-							model.Name = "AutoCaptureModel"
-							model.WorldPivot = aabbCenterCF * pvInstanceCopy:GetPivot().Rotation:Inverse()
-							model:PivotTo(CFrame.identity)
-							model:SetAttribute("CaptureName", pvInstanceCopy.Name)
-
-							modelsRef.current[element] = model
-							controller:loadModel(modelsRef.current[element])
-						end
-					end,
-					OnListElementRemoved = function(element)
-						if modelsRef.current[element] then
-							controller:unloadModel(modelsRef.current[element])
-							modelsRef.current[element]:Destroy()
-							modelsRef.current[element] = nil
-						end
-					end,
-
-					Controller = controller,
-					CaptureRect = captureRect,
-					Disabled = disabled,
-				}),
-
-				FitterWindow = ReactRoblox.createPortal(
-					React.createElement("ScreenGui", {
-						Name = "FitterWindow",
-						Archivable = false,
-						IgnoreGuiInset = true,
-						ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-					}, {
-						Core = React.createElement(FitterWindow, {
-							IsFullScreen = dynamic.isFullScreen,
-							Resolution = dynamic.captureSize,
-							AnimationTrack = static.animationTrack,
-
-							PaddingVisible = dynamic.fitType ~= "Free" and dynamic.paddingVisible,
-							PaddingTop = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingTop,
-							PaddingBottom = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingBottom,
-							PaddingLeft = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingLeft,
-							PaddingRight = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingRight,
-
-							OnCaptureRectChanged = function(newRect)
-								controller:setCaptureRect(newRect)
-								setCaptureRect(newRect)
-							end,
-
-							OnPaddedRectChanged = function(newRect)
-								controller:setPaddedRect(newRect)
-							end,
-
-							Disabled = disabled,
-						}),
-					}),
-					CoreGui
-				),
-			})
+		return isEnabled and React.createElement(appComponent, {})
 	end
 
 	local dockRoot = ReactRoblox.createRoot(dock)
@@ -257,7 +273,6 @@ function AutoCapture.mount(plugin: Plugin, toolbar: PluginToolbar)
 		dockRoot:unmount()
 		dock:Destroy()
 		button:Destroy()
-		controller:Destroy()
 	end)
 end
 
