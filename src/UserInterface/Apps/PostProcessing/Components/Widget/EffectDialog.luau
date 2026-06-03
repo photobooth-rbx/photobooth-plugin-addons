@@ -5,7 +5,7 @@ local React = require(pluginRoot.Packages.React)
 
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
-local Effects = require(postProcessingRoot.Controller.Effects)
+local Effects = require(postProcessingRoot.Effects)
 
 type TextInputProps = {
 	AnchorPoint: Vector2?,

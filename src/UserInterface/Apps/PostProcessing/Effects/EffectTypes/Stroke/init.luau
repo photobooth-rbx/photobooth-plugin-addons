@@ -25,6 +25,8 @@ return EffectsRegistry.register("Stroke", {
 		return properties
 	end,
 	render = function(inputs, properties)
+		print("wrf?")
+
 		local imgSize = inputs.img.Size
 		local imgWidth, imgHeight = imgSize.X, imgSize.Y
 		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)

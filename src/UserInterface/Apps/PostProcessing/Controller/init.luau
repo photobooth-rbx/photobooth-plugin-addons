@@ -5,7 +5,9 @@ local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Future = require(pluginRoot.Packages.Future)
 local Trove = require(pluginRoot.Packages.Trove)
 
-local Effects = require(script.Effects)
+local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
+local Effects = require(postProcessingRoot.Effects)
+
 local LayerComposer = require(script.LayerComposer)
 local SignedVectorField = require(script.SignedVectorField)
 
@@ -22,6 +24,8 @@ export type Effect<Properties> = {
 	properties: Properties,
 }
 
+type AnyEffect = Effect<any>
+
 -- Class
 
 local PostProcessingControllerStatic = {}
@@ -35,7 +39,7 @@ export type PostProcessingController = typeof(setmetatable(
 		editImage: EditableImage?,
 		imageTrove: Trove.Trove,
 
-		observableEffects: ObservableValue.ObservableValue<{ ObservableValue.ObservableValue<Effect<any>> }>,
+		observableEffects: ObservableValue.ObservableValue<{ ObservableValue.ObservableValue<AnyEffect> }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 	},
 	PostProcessingControllerClass
@@ -123,7 +127,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			svfEdit:Destroy()
 		end)
 
-		local function watchEffect(observedEffect: ObservableValue.ObservableValue<Effect<any>>)
+		local function watchEffect(observedEffect: ObservableValue.ObservableValue<AnyEffect>)
 			local renderReady = Future.new()
 
 			local effect = observedEffect:get()
