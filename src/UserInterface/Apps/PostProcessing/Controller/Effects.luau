@@ -34,10 +34,12 @@ local function smoothStep(edge0: number, edge1: number, x: number)
 	return t * t * (3.0 - 2.0 * t)
 end
 
-local function smoothBand(edge0: number, edge1: number, feather: number, x: number)
-	local lower = 1 - smoothStep(edge0 - feather, edge0 + feather, x)
-	local upper = smoothStep(edge1 - feather, edge1 + feather, x)
-	return math.max(lower, upper)
+local function getBoxIntersection(x: number, y: number)
+	local directionUnit = Vector2.new(x, y).Unit
+	local tMaxX = 0.5 / math.abs(directionUnit.X)
+	local tMaxY = 0.5 / math.abs(directionUnit.Y)
+	local intersection = directionUnit * math.min(tMaxX, tMaxY)
+	return intersection.X, intersection.Y
 end
 
 local function readSignedDistance(svf: buffer, width: number, x: number, y: number)
@@ -51,7 +53,8 @@ local function readSignedDistance(svf: buffer, width: number, x: number, y: numb
 	local ny = math.floor((pixelIndex - 1) / width) + 1
 	local nx = pixelIndex - (ny - 1) * width
 
-	local distanceSq = (nx - x) ^ 2 + (ny - y) ^ 2
+	local bx, by = getBoxIntersection(x - nx, y - ny)
+	local distanceSq = (x - (nx + bx)) ^ 2 + (y - (ny + by)) ^ 2
 	local distance = math.sqrt(distanceSq)
 	local signedDistance = distance * sign
 
@@ -148,9 +151,9 @@ registerEffect("Drop Shadow", {
 		local properties: DropShadowProperties = {
 			blur = 10,
 			spread = 10,
-			maskImage = true,
-			shadowOffset = Vector2.zero,
-			transparency = 0,
+			maskImage = false,
+			shadowOffset = Vector2.new(20, 20),
+			transparency = 0.6,
 			offset = Vector2.zero,
 			color = Color3.new(0, 0, 0),
 		}
@@ -160,7 +163,6 @@ registerEffect("Drop Shadow", {
 		local imgSize = inputs.img.Size
 		local imgWidth, imgHeight = imgSize.X, imgSize.Y
 
-		local img = inputs.img:ReadPixelsBuffer(Vector2.zero, imgSize)
 		local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 		local output = buffer.create(imgWidth * imgHeight * 4)
 		local maxSpread = properties.spread + properties.blur
