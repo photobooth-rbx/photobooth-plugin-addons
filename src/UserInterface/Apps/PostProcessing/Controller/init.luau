@@ -6,9 +6,12 @@ local Future = require(pluginRoot.Packages.Future)
 local Trove = require(pluginRoot.Packages.Trove)
 
 local Effects = require(script.Effects)
-local SignedVectorField = require(script.Helpers.SignedVectorField)
+local LayerComposer = require(script.LayerComposer)
+local SignedVectorField = require(script.SignedVectorField)
 
 -- Types
+
+export type Layer = LayerComposer.Layer
 
 type GenericEffect<Kind, Properties> = {
 	kind: Kind,
@@ -23,14 +26,6 @@ export type BaseImageEffect = GenericEffect<"Base Image", Effects.BaseImagePrope
 export type StrokeEffect = GenericEffect<"Stroke", Effects.StrokeProperties>
 export type DropShadowEffect = GenericEffect<"Drop Shadow", Effects.DropShadowProperties>
 export type Effect = BaseImageEffect | StrokeEffect | DropShadowEffect
-
-export type Layer = {
-	name: string,
-	editImage: EditableImage,
-	offset: Vector2,
-	tintColor: Color3,
-	transparency: number,
-}
 
 -- Class
 
