@@ -70,7 +70,7 @@ local function DropShadowEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 2,
+			LayoutOrder = 3,
 		}),
 
 		Offset = React.createElement(StudioProperties.Vector2, {
@@ -86,7 +86,7 @@ local function DropShadowEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 3,
+			LayoutOrder = 4,
 		}),
 
 		Transparency = React.createElement(StudioProperties.Number, {
@@ -104,7 +104,7 @@ local function DropShadowEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 4,
+			LayoutOrder = 5,
 		}),
 
 		Color = React.createElement(StudioProperties.Color3, {
@@ -119,7 +119,7 @@ local function DropShadowEffect(props: Props)
 			end,
 
 			Disabled = props.Disabled,
-			LayoutOrder = 5,
+			LayoutOrder = 6,
 		}),
 	})
 end
