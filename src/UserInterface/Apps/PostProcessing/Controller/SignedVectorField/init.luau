@@ -1,12 +1,15 @@
 local AssetService = game:GetService("AssetService")
 
-local SignedVectorField = {}
+local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local Trove = require(pluginRoot.Packages.Trove)
 
 local PLUS_ONE = true
 local ACTOR_COUNT = 32
 
 script:SetAttribute("PlusOne", PLUS_ONE)
 script:SetAttribute("ActorCount", ACTOR_COUNT)
+
+local SignedVectorField = {}
 
 local PlantSeeds = require(script.PlantSeeds)
 local JFAPasses = require(script.JFAPasses)
@@ -30,26 +33,46 @@ local function sliceIntoStrips(region: Rect, nSlices: number)
 	return regions
 end
 
-function SignedVectorField.generateAsync(content: Content)
-	local imgEdit = AssetService:CreateEditableImageAsync(content)
-	local voronoiEdit = AssetService:CreateEditableImageAsync(content)
-
-	local success, err: string? = pcall(function()
-		local imgSize = imgEdit.Size
-		local fullRegion = Rect.new(0, 0, imgSize.X, imgSize.Y)
-		local plantRegions = sliceIntoStrips(fullRegion, ACTOR_COUNT)
-
-		PlantSeeds(imgEdit, voronoiEdit, plantRegions)
-		JFAPasses(voronoiEdit, plantRegions)
-	end)
-
-	imgEdit:Destroy()
-
-	if not success and err then
-		error(err, 0)
+function SignedVectorField.generator(content: Content)
+	local isComplete = false
+	local wasCancelled = false
+	local cancelTrove = Trove.new()
+	local function cancel()
+		if not isComplete then
+			wasCancelled = true
+			cancelTrove:Destroy()
+		end
 	end
 
-	return voronoiEdit
+	local function generateAsync()
+		local imgEdit = AssetService:CreateEditableImageAsync(content)
+		local voronoiEdit = AssetService:CreateEditableImageAsync(content)
+
+		local success, err = pcall(function()
+			local imgSize = imgEdit.Size
+			local fullRegion = Rect.new(0, 0, imgSize.X, imgSize.Y)
+			local plantRegions = sliceIntoStrips(fullRegion, ACTOR_COUNT)
+
+			local cancelled = PlantSeeds(imgEdit, voronoiEdit, plantRegions, cancelTrove)
+			if not cancelled then
+				JFAPasses(voronoiEdit, plantRegions, cancelTrove)
+			end
+		end)
+
+		isComplete = true
+		imgEdit:Destroy()
+
+		if not success and err then
+			error(err, 0)
+		end
+
+		return voronoiEdit, wasCancelled
+	end
+
+	return {
+		generateAsync = generateAsync,
+		cancel = cancel,
+	}
 end
 
 return SignedVectorField

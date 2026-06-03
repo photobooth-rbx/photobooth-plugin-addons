@@ -113,7 +113,15 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 	end)
 
 	self.imageTrove:Add(task.spawn(function()
-		local svfEdit = SignedVectorField.generateAsync(Content.fromObject(editImage))
+		local svfGenerator = SignedVectorField.generator(Content.fromObject(editImage))
+		self.imageTrove:Add(svfGenerator.cancel)
+
+		local svfEdit, cancelled = svfGenerator.generateAsync()
+		if cancelled then
+			svfEdit:Destroy()
+			return
+		end
+
 		self.imageTrove:Add(function()
 			svfEdit:Destroy()
 		end)
@@ -192,7 +200,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 
 		local watching = {}
 		self.imageTrove:Add(function()
-			for observableEffect, cleanup in watching do
+			for _observableEffect, cleanup in watching do
 				local cleanupCasted = cleanup :: () -> ()
 				cleanupCasted()
 			end
@@ -216,7 +224,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 				watching[observedEffect] = nil
 			end
 
-			for observableEffect, cleanup in watching do
+			for _observableEffect, cleanup in watching do
 				cleanup()
 			end
 
@@ -240,7 +248,7 @@ function PostProcessingControllerClass.composeImageAsync(self: PostProcessingCon
 	self:loadImageAsync(editImage)
 
 	local layers = self.observableLayers:get()
-	local composedEdit = LayerComposer.compose(editImage, layers)
+	local composedEdit = LayerComposer.composeAsync(editImage, layers)
 
 	self:unloadImage()
 

@@ -35,7 +35,7 @@ local function sliceIntoStrips(region: Rect, nSlices: number)
 	return regions
 end
 
-function LayerComposer.compose(editImage: EditableImage, layers: { Layer })
+function LayerComposer.composeAsync(editImage: EditableImage, layers: { Layer })
 	scheduler:waitForReady()
 
 	local imgSize = editImage.Size
