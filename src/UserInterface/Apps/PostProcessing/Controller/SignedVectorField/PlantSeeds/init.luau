@@ -1,18 +1,23 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local Cancellation = require(pluginRoot.Utilities.Cancellation)
 local Parallel = require(pluginRoot.Packages.Parallel)
-local Trove = require(pluginRoot.Packages.Trove)
 
 local ACTOR_COUNT = assert(script.Parent:GetAttribute("ActorCount") :: number?)
 
 type WorkerAction = typeof(require(script.Worker))
 
-local function plantSeeds(img: EditableImage, voronoi: EditableImage, regions: { Rect }, cancelTrove: Trove.Trove)
+local function plantSeeds(
+	img: EditableImage,
+	voronoi: EditableImage,
+	regions: { Rect },
+	token: Cancellation.CancelToken
+)
 	local scheduler = Parallel.new(ACTOR_COUNT, {
 		script = script.Worker,
 		typecast = (nil :: any) :: WorkerAction,
 	})
 
-	cancelTrove:Add(function()
+	local unhook = token:onCancel(function()
 		scheduler:cancelWork()
 		scheduler:Destroy()
 	end)
@@ -26,21 +31,23 @@ local function plantSeeds(img: EditableImage, voronoi: EditableImage, regions: {
 		scheduler:schedule(img, crop)
 	end
 
+	local results, workCancelled = scheduler:workAsync()
+	if workCancelled then
+		return
+	end
+
 	local offset = 0
 	local stitched = buffer.create(imgWidth * imgHeight * 4)
-
-	local results, workCancelled = scheduler:workAsync()
-	if not workCancelled then
-		for _i, getBuffer in results do
-			local cropBuffer = getBuffer()
-			buffer.copy(stitched, offset, cropBuffer)
-			offset = offset + buffer.len(cropBuffer)
-		end
+	for _i, getBuffer in results do
+		local cropBuffer = getBuffer()
+		buffer.copy(stitched, offset, cropBuffer)
+		offset = offset + buffer.len(cropBuffer)
 	end
 
 	voronoi:WritePixelsBuffer(Vector2.zero, imgSize, stitched)
 
-	return workCancelled
+	unhook()
+	scheduler:Destroy()
 end
 
 return plantSeeds

@@ -113,15 +113,17 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 	end)
 
 	self.imageTrove:Add(task.spawn(function()
-		local svfGenerator = SignedVectorField.generator(Content.fromObject(editImage))
-		self.imageTrove:Add(svfGenerator.cancel)
+		local svfProcess = SignedVectorField.generate(Content.fromObject(editImage))
+		self.imageTrove:Add(function()
+			svfProcess:cancel()
+		end)
 
-		local svfEdit, cancelled = svfGenerator.generateAsync()
-		if cancelled then
-			svfEdit:Destroy()
+		local unpackSvfEdit = svfProcess:expect()
+		if not unpackSvfEdit then
 			return
 		end
 
+		local svfEdit = unpackSvfEdit()
 		self.imageTrove:Add(function()
 			svfEdit:Destroy()
 		end)

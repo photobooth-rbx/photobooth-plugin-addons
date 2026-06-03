@@ -1,7 +1,7 @@
 local AssetService = game:GetService("AssetService")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local Trove = require(pluginRoot.Packages.Trove)
+local Cancellation = require(pluginRoot.Utilities.Cancellation)
 
 local PLUS_ONE = true
 local ACTOR_COUNT = 32
@@ -33,46 +33,39 @@ local function sliceIntoStrips(region: Rect, nSlices: number)
 	return regions
 end
 
-function SignedVectorField.generator(content: Content)
-	local isComplete = false
-	local wasCancelled = false
-	local cancelTrove = Trove.new()
-	local function cancel()
-		if not isComplete then
-			wasCancelled = true
-			cancelTrove:Destroy()
-		end
-	end
-
-	local function generateAsync()
+function SignedVectorField.generate(content: Content)
+	return Cancellation.new(function(token)
 		local imgEdit = AssetService:CreateEditableImageAsync(content)
-		local voronoiEdit = AssetService:CreateEditableImageAsync(content)
+		local unhookImgEdit = token:onCancel(function()
+			imgEdit:Destroy()
+		end)
 
-		local success, err = pcall(function()
+		local voronoiEdit = AssetService:CreateEditableImageAsync(content)
+		local unhookVoronoiEdit = token:onCancel(function()
+			voronoiEdit:Destroy()
+		end)
+
+		local success, err: string? = pcall(function()
 			local imgSize = imgEdit.Size
 			local fullRegion = Rect.new(0, 0, imgSize.X, imgSize.Y)
 			local plantRegions = sliceIntoStrips(fullRegion, ACTOR_COUNT)
 
-			local cancelled = PlantSeeds(imgEdit, voronoiEdit, plantRegions, cancelTrove)
-			if not cancelled then
-				JFAPasses(voronoiEdit, plantRegions, cancelTrove)
+			PlantSeeds(imgEdit, voronoiEdit, plantRegions, token)
+			if not token:isCancelled() then
+				JFAPasses(voronoiEdit, plantRegions, token)
 			end
 		end)
 
-		isComplete = true
+		unhookImgEdit()
 		imgEdit:Destroy()
 
-		if not success and err then
+		if not success and err and not token:isCancelled() then
 			error(err, 0)
 		end
 
-		return voronoiEdit, wasCancelled
-	end
-
-	return {
-		generateAsync = generateAsync,
-		cancel = cancel,
-	}
+		unhookVoronoiEdit()
+		return voronoiEdit
+	end)
 end
 
 return SignedVectorField
