@@ -34,7 +34,7 @@ local function useAnimationTrack()
 			local track = trove:Add(animator:LoadAnimation(animation))
 			track:Play(0, nil, 0)
 
-			trove:Add(PriorityStepper.render:connect(RenderPriorities.ANIMATOR, function(dt)
+			trove:Add(PriorityStepper.render:connect(RenderPriorities.ANIMATOR, function(_dt)
 				animator:StepAnimations(0)
 			end))
 

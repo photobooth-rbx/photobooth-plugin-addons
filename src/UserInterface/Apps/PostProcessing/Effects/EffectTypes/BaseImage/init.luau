@@ -17,7 +17,7 @@ return EffectsRegistry.register("Base Image", {
 		}
 		return properties
 	end,
-	render = function(inputs, properties)
+	render = function(_inputs, _properties)
 		-- do nothing!
 	end,
 })
