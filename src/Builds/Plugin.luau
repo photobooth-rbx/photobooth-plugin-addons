@@ -1,5 +1,5 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local UserInterface = require(pluginRoot.UserInterface)
+local UserInterface = require(pluginRoot.Main.UserInterface)
 
 local Plugin = {}
 
