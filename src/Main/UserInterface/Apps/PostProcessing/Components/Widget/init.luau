@@ -12,15 +12,14 @@ local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 local Hooks = require(uiRoot.Hooks)
 
 local EffectsList = require(script.EffectsList)
+local PresetsList = require(script.PresetsList)
 local ImageViewer = require(script.ImageViewer)
 local EffectDialog = require(script.EffectDialog)
 
 local ACTION_BAR_HEIGHT = 38
-local ADD_EFFECT_BUTTON_HEIGHT = 32
 
 local IMAGE_ICON = assert(Lucide.GetAsset("image", 16))
 local IMAGES_ICON = assert(Lucide.GetAsset("images", 16))
-local PLUS_ICON = assert(Lucide.GetAsset("plus", 16))
 local RIGHT_ICON = assert(Lucide.GetAsset("chevron-right", 16))
 local LEFT_ICON = assert(Lucide.GetAsset("chevron-left", 16))
 
@@ -141,68 +140,28 @@ local function Widget(props: Props)
 
 						Properties = {
 							LayoutOrder = 1,
-							Content = React.createElement("Frame", {
-								BackgroundTransparency = 1,
+							Content = React.createElement(EffectsList, {
 								Size = UDim2.fromScale(1, 1),
-							}, {
-								EffectsList = React.createElement(EffectsList, {
-									Size = UDim2.new(1, 0, 1, -ADD_EFFECT_BUTTON_HEIGHT),
-									Controller = controller,
-									Disabled = disabled,
-								}),
-								AddNewEffect = React.createElement("Frame", {
-									BackgroundTransparency = 1,
-									AnchorPoint = Vector2.new(0, 1),
-									Position = UDim2.fromScale(0, 1),
-									Size = UDim2.new(1, 0, 0, ADD_EFFECT_BUTTON_HEIGHT),
-									ClipsDescendants = true,
-								}, {
-									Padding = React.createElement("UIPadding", {
-										PaddingLeft = UDim.new(0, 3),
-										PaddingRight = UDim.new(0, 3),
-										PaddingTop = UDim.new(0, 3),
-										PaddingBottom = UDim.new(0, 3),
-									}),
-									ClipFrame = React.createElement("Frame", {
-										BackgroundTransparency = 1,
-										Size = UDim2.new(1, 0, 1, 0),
-										ClipsDescendants = true,
-									}, {
-										Button = React.createElement(StudioComponents.Button, {
-											LayoutOrder = -2,
-											Size = UDim2.new(1, -2, 1, -2),
-											AnchorPoint = Vector2.new(0.5, 0.5),
-											Position = UDim2.fromScale(0.5, 0.5),
-											TextXAlignment = Enum.TextXAlignment.Center,
-											Text = "Add Effect",
-											Disabled = disabled,
+								Controller = controller,
+								Disabled = disabled,
 
-											Icon = {
-												Image = PLUS_ICON.Url,
-												RectSize = PLUS_ICON.ImageRectSize,
-												RectOffset = PLUS_ICON.ImageRectOffset,
-												Size = Vector2.new(
-													PLUS_ICON.ImageRectSize.X,
-													PLUS_ICON.ImageRectSize.Y
-												),
-												UseThemeColor = true,
-											},
-
-											OnActivated = function()
-												setIsDialogOpen(true)
-											end,
-										}),
-									}),
-								}),
+								OnButtonActivated = function()
+									setIsDialogOpen(true)
+								end,
 							}),
 						},
 
 						Presets = {
 							LayoutOrder = 2,
-							Content = React.createElement("Frame", {
-								BackgroundTransparency = 1,
+							Content = React.createElement(PresetsList, {
 								Size = UDim2.fromScale(1, 1),
-							}, {}),
+								Controller = controller,
+								Disabled = disabled,
+
+								OnButtonActivated = function()
+									print("?")
+								end,
+							}),
 						},
 					}),
 				}),

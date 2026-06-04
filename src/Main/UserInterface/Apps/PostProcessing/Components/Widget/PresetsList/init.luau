@@ -1,5 +1,4 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
 local Lucide = require(pluginRoot.Packages.Lucide)
@@ -7,13 +6,10 @@ local React = require(pluginRoot.Packages.React)
 
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
-local Effects = require(postProcessingRoot.Effects)
-
-local GroupHeader = require(script.GroupHeader)
 
 local SCROLL_GRADIENT_INSET_HEIGHT = 22
 local ADD_EFFECT_BUTTON_HEIGHT = 32
-local SPARKLES_ICON = assert(Lucide.GetAsset("sparkles", 16))
+local SAVE_ICON = assert(Lucide.GetAsset("save", 16))
 
 export type Props = {
 	AnchorPoint: Vector2?,
@@ -28,80 +24,7 @@ export type Props = {
 	Disabled: boolean?,
 }
 
-type AnyEffect = Controller.Effect<any>
-
-type EffectProps = {
-	Controller: Controller.PostProcessingController,
-	ObservableEffect: ObservableValue.ObservableValue<AnyEffect>,
-	LayoutOrder: number,
-	Disabled: boolean?,
-}
-
-local function EffectComponent(props: EffectProps)
-	local effect, updateEffect = props.ObservableEffect:use()
-	local component = Effects.getReactComponentByKind(effect.kind)
-
-	return React.createElement(GroupHeader, {
-		GroupName = effect.name,
-		LayoutOrder = props.LayoutOrder,
-		Disabled = props.Disabled,
-
-		OnTrashActivated = if effect.playerCreated
-			then function()
-				props.Controller.observableEffects:update()(function(effects)
-					table.remove(effects, props.LayoutOrder)
-					return effects
-				end)
-			end
-			else nil,
-
-		OnMoveActivated = function(step)
-			local i = props.LayoutOrder
-			local j = i + step
-			if props.Controller.observableEffects:get()[j] then
-				props.Controller.observableEffects:update()(function(effects)
-					local observedEffectA = effects[i]
-					local observedEffectB = effects[j]
-
-					observedEffectA:update()(function(effectA: any)
-						effectA.index = j
-						return effectA
-					end)
-
-					observedEffectB:update()(function(effectB: any)
-						effectB.index = i
-						return effectB
-					end)
-
-					effects[i] = observedEffectB
-					effects[j] = observedEffectA
-
-					return effects
-				end)
-			end
-		end,
-	}, {
-		React.createElement(component, {
-			Effect = effect,
-			UpdateEffect = updateEffect,
-			Disabled = props.Disabled,
-		}),
-	})
-end
-
-local function EffectsList(props: Props)
-	local observableEffects = props.Controller:useEffects()
-
-	local effectNodes: { [string]: React.ReactNode } = {}
-	for i, observableEffect in observableEffects do
-		effectNodes["Effect" .. i] = React.createElement(EffectComponent, {
-			Controller = props.Controller,
-			ObservableEffect = observableEffect :: any,
-			LayoutOrder = i,
-			Disabled = props.Disabled,
-		})
-	end
-
+local function PresetsList(props: Props)
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		AnchorPoint = props.AnchorPoint,
@@ -134,7 +57,7 @@ local function EffectsList(props: Props)
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
 				}),
-			}, effectNodes),
+			}),
 
 			Padding = React.createElement("Frame", {
 				BackgroundTransparency = 1,
@@ -143,7 +66,7 @@ local function EffectsList(props: Props)
 			}),
 		}),
 
-		AddNewEffect = React.createElement("Frame", {
+		AddNewPreset = React.createElement("Frame", {
 			BackgroundTransparency = 1,
 			AnchorPoint = Vector2.new(0, 1),
 			Position = UDim2.fromScale(0, 1),
@@ -167,14 +90,14 @@ local function EffectsList(props: Props)
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
 					TextXAlignment = Enum.TextXAlignment.Center,
-					Text = "Add Effect",
+					Text = "Add Preset",
 					Disabled = props.Disabled,
 
 					Icon = {
-						Image = SPARKLES_ICON.Url,
-						RectSize = SPARKLES_ICON.ImageRectSize,
-						RectOffset = SPARKLES_ICON.ImageRectOffset,
-						Size = Vector2.new(SPARKLES_ICON.ImageRectSize.X, SPARKLES_ICON.ImageRectSize.Y),
+						Image = SAVE_ICON.Url,
+						RectSize = SAVE_ICON.ImageRectSize,
+						RectOffset = SAVE_ICON.ImageRectOffset,
+						Size = Vector2.new(SAVE_ICON.ImageRectSize.X, SAVE_ICON.ImageRectSize.Y),
 						UseThemeColor = true,
 					},
 
@@ -187,4 +110,4 @@ local function EffectsList(props: Props)
 	})
 end
 
-return EffectsList
+return PresetsList
