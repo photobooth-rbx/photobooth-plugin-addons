@@ -49,19 +49,21 @@ function IntegralImageStatic.fromBuffer(
 		return processImgRead(buffer.readu32(imgBuffer, i), x, y)
 	end
 
-	write(1, 1, readImage(1, 1))
-
-	for x = 2, width do
-		write(x, 1, readImage(x, 1) + read(x - 1, 1))
+	-- Pass 1: horizontal prefix sums. Each row is independent.
+	for y = 1, height do
+		local acc = 0
+		for x = 1, width do
+			acc = acc + readImage(x, y)
+			write(x, y, acc)
+		end
 	end
 
-	for y = 2, height do
-		write(1, y, readImage(1, y) + read(1, y - 1))
-	end
-
-	for x = 2, width do
-		for y = 2, height do
-			write(x, y, readImage(x, y) + read(x, y - 1) + read(x - 1, y) - read(x - 1, y - 1))
+	-- Pass 2: vertical prefix sums over the horizontal sums. Each column is independent.
+	for x = 1, width do
+		local acc = 0
+		for y = 1, height do
+			acc = acc + read(x, y)
+			write(x, y, acc)
 		end
 	end
 
