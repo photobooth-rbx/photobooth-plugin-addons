@@ -27,6 +27,7 @@ loadEffects({
 	"BaseImage",
 	"Stroke",
 	"DropShadow",
+	"InnerShadow",
 })
 
 return {
