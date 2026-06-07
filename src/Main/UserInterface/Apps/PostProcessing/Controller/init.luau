@@ -120,19 +120,6 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			svfProcess:cancel()
 		end)
 
-		local t = os.clock()
-		local intImg = IntegralImage.fromEditImage(editImage)
-		print(os.clock() - t)
-		self.imageTrove:Add(function()
-			intImg:Destroy()
-		end)
-
-		t = os.clock()
-		local intImg2 = IntegralImageSerial.fromEditImage(editImage, function(u32)
-			return bit32.extract(u32, 24, 8)
-		end)
-		print(os.clock() - t)
-
 		local unpackSvfEdit = svfProcess:expect()
 		if not unpackSvfEdit then
 			return
