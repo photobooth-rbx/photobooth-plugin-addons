@@ -1,6 +1,9 @@
 local AssetService = game:GetService("AssetService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local IntegralImageSerial = require(ReplicatedStorage.PluginRoot.Utilities.IntegralImageSerial)
+local IntegralImage = require(script.IntegralImage)
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Future = require(pluginRoot.Packages.Future)
 local Trove = require(pluginRoot.Packages.Trove)
@@ -116,6 +119,19 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 		self.imageTrove:Add(function()
 			svfProcess:cancel()
 		end)
+
+		local t = os.clock()
+		local intImg = IntegralImage.fromEditImage(editImage)
+		print(os.clock() - t)
+		self.imageTrove:Add(function()
+			intImg:Destroy()
+		end)
+
+		t = os.clock()
+		local intImg2 = IntegralImageSerial.fromEditImage(editImage, function(u32)
+			return bit32.extract(u32, 24, 8)
+		end)
+		print(os.clock() - t)
 
 		local unpackSvfEdit = svfProcess:expect()
 		if not unpackSvfEdit then

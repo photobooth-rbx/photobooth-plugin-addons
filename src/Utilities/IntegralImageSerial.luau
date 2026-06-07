@@ -74,6 +74,12 @@ function IntegralImageStatic.fromImage(img: Image.Image, processImgRead: (number
 	return IntegralImageStatic.fromBuffer(img.buffer, img.size, processImgRead)
 end
 
+function IntegralImageStatic.fromEditImage(img: EditableImage, processImgRead: (number, number, number) -> number)
+	local size = img.Size
+	local b = img:ReadPixelsBuffer(Vector2.zero, size)
+	return IntegralImageStatic.fromBuffer(b, size, processImgRead)
+end
+
 function IntegralImageClass.read(self: IntegralImage, x: number, y: number)
 	local cx = math.min(x, self.width)
 	local cy = math.min(y, self.height)
