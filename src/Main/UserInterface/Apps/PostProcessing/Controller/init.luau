@@ -1,9 +1,6 @@
 local AssetService = game:GetService("AssetService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local IntegralImageSerial = require(ReplicatedStorage.PluginRoot.Utilities.IntegralImageSerial)
-local IntegralImage = require(script.IntegralImage)
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local Future = require(pluginRoot.Packages.Future)
 local Trove = require(pluginRoot.Packages.Trove)
