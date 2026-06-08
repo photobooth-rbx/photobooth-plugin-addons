@@ -1,5 +1,4 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
-local Effect = require(script.Effect)
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
@@ -9,6 +8,8 @@ local React = require(pluginRoot.Packages.React)
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Controller = require(postProcessingRoot.Controller)
 local Effects = require(postProcessingRoot.Effects)
+
+local Layer = require(script.Layer)
 
 local SCROLL_GRADIENT_INSET_HEIGHT = 22
 local SPARKLES_ICON = assert(Lucide.GetAsset("sparkles", 16))
@@ -28,12 +29,6 @@ export type Props = {
 
 local function EffectsList(props: Props)
 	local theme = StudioComponents.useTheme()
-
-	local effectNodes: { [string]: React.ReactNode } = {}
-
-	effectNodes["EffectEx"] = React.createElement(Effect, {
-		Title = "Effect",
-	})
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -74,7 +69,12 @@ local function EffectsList(props: Props)
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
 				}),
-			}, effectNodes),
+
+				Layer = React.createElement(Layer, {
+					Title = "Test",
+					Indent = 0,
+				}),
+			}),
 
 			Padding = React.createElement("Frame", {
 				BackgroundTransparency = 1,
