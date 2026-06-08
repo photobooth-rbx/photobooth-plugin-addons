@@ -30,7 +30,7 @@ return {
 	reactRoblox = ReactRoblox,
 	story = CreateStory.theme(function()
 		return React.createElement(Component, {
-			Size = UDim2.fromOffset(750, 450),
+			Size = UDim2.fromOffset(950, 650),
 		})
 	end),
 }

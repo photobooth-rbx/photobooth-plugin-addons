@@ -11,7 +11,7 @@ local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 local Hooks = require(uiRoot.Hooks)
 
-local EffectsList = require(script.EffectsList)
+local EffectsList = require(script.EffectsList2)
 local PresetsList = require(script.PresetsList)
 local ImageViewer = require(script.ImageViewer)
 local EffectDialog = require(script.EffectDialog)
@@ -89,7 +89,7 @@ local function Widget(props: Props)
 	local selected = useSelectedEditImages()
 
 	local layers = controller:useLayers()
-	local selectedTab, setSelectedTab = React.useState("Properties")
+	local selectedTab, setSelectedTab = React.useState("Effects")
 	local isApplying, setIsApplying = React.useState(false)
 	local isDialogOpen, setIsDialogOpen = React.useState(false)
 	local loadingLayer, setLoadingLayer = React.useState(nil :: Controller.Layer?)
@@ -131,14 +131,13 @@ local function Widget(props: Props)
 					BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 					AnchorPoint = Vector2.new(1, 0),
 					Position = UDim2.fromScale(1, 0),
-					Size = UDim2.new(0, 240, 1, 0),
+					Size = UDim2.new(0, 280, 1, 0),
 				}, {
 					Tabs = React.createElement(StudioComponents.TabContainer, {
 						SelectedTab = selectedTab,
 						OnTabSelected = setSelectedTab,
 					}, {
-
-						Properties = {
+						Effects = {
 							LayoutOrder = 1,
 							Content = React.createElement(EffectsList, {
 								Size = UDim2.fromScale(1, 1),
@@ -168,7 +167,7 @@ local function Widget(props: Props)
 
 				Left = React.createElement("Frame", {
 					BackgroundTransparency = 1,
-					Size = UDim2.new(1, -240, 1, 0),
+					Size = UDim2.new(1, -280, 1, 0),
 				}, {
 					ImageViewer = React.createElement(ImageViewer, {
 						Size = UDim2.fromScale(1, 1),
@@ -191,7 +190,7 @@ local function Widget(props: Props)
 					BackgroundTransparency = 1,
 					AnchorPoint = Vector2.new(1, 0.5),
 					Position = UDim2.fromScale(1, 0.5),
-					Size = UDim2.new(0, 240, 1, 0),
+					Size = UDim2.new(0, 280, 1, 0),
 					ClipsDescendants = true,
 				}, {
 					Padding = React.createElement("UIPadding", {
