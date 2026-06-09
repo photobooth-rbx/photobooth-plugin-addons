@@ -1,4 +1,5 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
+local Effect = require(script.Effect)
 local ObservableValue = require(pluginRoot.Utilities.ObservableValue)
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local StudioProperties = require(pluginRoot.Packages.StudioProperties)
@@ -71,8 +72,16 @@ local function EffectsList(props: Props)
 				}),
 
 				Layer = React.createElement(Layer, {
-					Title = "Test",
-					Indent = 0,
+					Title = "Image",
+					IsVisible = true,
+					IsSelected = false,
+					IsExpanded = true,
+				}, {
+					Stroke = React.createElement(Effect, {
+						Title = "Stroke",
+						IsVisible = true,
+						IsSelected = true,
+					}),
 				}),
 			}),
 
