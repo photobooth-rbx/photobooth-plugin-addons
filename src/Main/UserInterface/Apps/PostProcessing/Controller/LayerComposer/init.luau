@@ -44,7 +44,7 @@ function LayerComposer.composeAsync(editImage: EditableImage, layers: { Layer })
 	local strips = sliceIntoStrips(fullRegion, scheduler:getActorCount())
 
 	for _, strip in strips do
-		scheduler:schedule(layers, strip)
+		scheduler:schedule(layers, strip, imgSize)
 	end
 
 	local results = scheduler:workAsync()
