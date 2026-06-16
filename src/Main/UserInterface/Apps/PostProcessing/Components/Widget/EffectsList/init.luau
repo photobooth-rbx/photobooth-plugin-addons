@@ -33,181 +33,32 @@ export type Props = {
 	Size: UDim2?,
 
 	Controller: Controller.PostProcessingController,
-	OnButtonActivated: () -> (),
 
 	ZIndex: number?,
 	LayoutOrder: number?,
 	Disabled: boolean?,
 }
 
--- Local (mock) state model. Layers own an ordered list of sub-effects; each effect
--- wraps a Controller.Effect record so the existing effect editor Components can be
--- reused verbatim in the properties panel.
-
-type EffectItem = {
-	id: string,
-	isVisible: boolean,
-	effect: Controller.Effect<any>,
-}
-
-type LayerItem = {
-	id: string,
-	name: string,
-	isVisible: boolean,
-	isExpanded: boolean,
-	effects: { EffectItem },
-}
-
+-- Selection is purely UI state: a layer is selected when effectId is nil, otherwise
+-- the sub-effect within that layer is selected. The layer/effect data lives in the
+-- Controller.
 type Selection = { layerId: string, effectId: string? }
 
 local function makeSelection(layerId: string, effectId: string?): Selection
 	return { layerId = layerId, effectId = effectId }
 end
 
-local idCounter = 0
-local function nextId(): string
-	idCounter += 1
-	return tostring(idCounter)
-end
-
-local function createEffectItem(kind: string, name: string): EffectItem
-	local entry = assert(Effects.getByKind(kind))
-	return {
-		id = nextId(),
-		isVisible = true,
-		effect = {
-			kind = kind,
-			name = name,
-			index = 0,
-			playerCreated = entry.playerCreated,
-			renderTicket = 0,
-			properties = entry.create(),
-		},
-	}
-end
-
-local function createLayer(name: string): LayerItem
-	return {
-		id = nextId(),
-		name = name,
-		isVisible = true,
-		isExpanded = true,
-		effects = {},
-	}
-end
-
-local function indexOf<T>(list: { T }, predicate: (T) -> boolean): number?
-	for i, value in list do
-		if predicate(value) then
-			return i
-		end
-	end
-	return nil
-end
-
-local function cloneLayer(layer: LayerItem): LayerItem
-	local clone = table.clone(layer)
-	clone.effects = table.clone(layer.effects)
-	return clone
-end
-
--- Returns a new layers array with `fn` applied to the layer matching `layerId`.
-local function mapLayer(layers: { LayerItem }, layerId: string, fn: (LayerItem) -> LayerItem): { LayerItem }
-	local out = table.clone(layers)
-	for i, layer in out do
-		if layer.id == layerId then
-			out[i] = fn(layer)
-			break
-		end
-	end
-	return out
-end
-
 local function EffectsList(props: Props)
 	local theme = StudioComponents.useTheme()
+	local controller = props.Controller
 
-	local layers, setLayers = React.useState(function(): { LayerItem }
-		local imageLayer = createLayer("Image")
-		table.insert(imageLayer.effects, createEffectItem("Stroke", "Stroke"))
-		return { imageLayer }
-	end)
-
+	local layers = controller:useLayers()
 	local selection, setSelection = React.useState(nil :: Selection?)
 
 	-- The add-effect dialog targets a layer captured when it opens, so changing the
 	-- selection afterwards (it can't, while the overlay blocks input) won't matter.
 	local pendingLayerId, setPendingLayerId = React.useState(nil :: string?)
 	local isDialogOpen = pendingLayerId ~= nil
-
-	-- Mutations
-
-	local toggleLayerVisibility = function(layerId: string)
-		setLayers(function(prev)
-			return mapLayer(prev, layerId, function(layer)
-				local clone = cloneLayer(layer)
-				clone.isVisible = not clone.isVisible
-				return clone
-			end)
-		end)
-	end
-
-	local toggleLayerExpanded = function(layerId: string)
-		setLayers(function(prev)
-			return mapLayer(prev, layerId, function(layer)
-				local clone = cloneLayer(layer)
-				clone.isExpanded = not clone.isExpanded
-				return clone
-			end)
-		end)
-	end
-
-	local toggleEffectVisibility = function(layerId: string, effectId: string)
-		setLayers(function(prev)
-			return mapLayer(prev, layerId, function(layer)
-				local clone = cloneLayer(layer)
-				local i = indexOf(clone.effects, function(item)
-					return item.id == effectId
-				end)
-				if i then
-					local item = table.clone(clone.effects[i])
-					item.isVisible = not item.isVisible
-					clone.effects[i] = item
-				end
-				return clone
-			end)
-		end)
-	end
-
-	local setLayerName = function(layerId: string, name: string)
-		setLayers(function(prev)
-			return mapLayer(prev, layerId, function(layer)
-				local clone = cloneLayer(layer)
-				clone.name = name
-				return clone
-			end)
-		end)
-	end
-
-	-- Applies a Controller-style effect transform to a single effect record. This is
-	-- the bridge that lets the registered effect editor Components drive local state.
-	local updateEffect = function(layerId: string, effectId: string, transform: (any) -> any)
-		setLayers(function(prev)
-			return mapLayer(prev, layerId, function(layer)
-				local clone = cloneLayer(layer)
-				local i = indexOf(clone.effects, function(item)
-					return item.id == effectId
-				end)
-				if i then
-					local item = table.clone(clone.effects[i])
-					local effect = table.clone(item.effect)
-					effect.properties = table.clone(item.effect.properties)
-					item.effect = transform(effect)
-					clone.effects[i] = item
-				end
-				return clone
-			end)
-		end)
-	end
 
 	local openAddEffect = function()
 		local targetLayerId = if selection then selection.layerId elseif layers[#layers] then layers[#layers].id else nil
@@ -223,26 +74,12 @@ local function EffectsList(props: Props)
 			return
 		end
 
-		local item = createEffectItem(kind, name)
-		setLayers(function(prev)
-			return mapLayer(prev, targetLayerId, function(layer)
-				local clone = cloneLayer(layer)
-				clone.isExpanded = true
-				table.insert(clone.effects, item)
-				return clone
-			end)
-		end)
-		setSelection(makeSelection(targetLayerId, item.id))
+		local effectId = controller:addEffect(targetLayerId, kind, name)
+		setSelection(makeSelection(targetLayerId, effectId))
 	end
 
 	local addLayer = function()
-		local layer = createLayer("Layer")
-		setLayers(function(prev)
-			local out = table.clone(prev)
-			table.insert(out, layer)
-			return out
-		end)
-		setSelection(makeSelection(layer.id))
+		setSelection(makeSelection(controller:addLayer()))
 	end
 
 	local moveSelected = function(step: number)
@@ -251,31 +88,9 @@ local function EffectsList(props: Props)
 		end
 
 		if selection.effectId then
-			setLayers(function(prev)
-				return mapLayer(prev, selection.layerId, function(layer)
-					local clone = cloneLayer(layer)
-					local i = indexOf(clone.effects, function(item)
-						return item.id == selection.effectId
-					end)
-					local j = if i then i + step else nil
-					if i and j and clone.effects[j] then
-						clone.effects[i], clone.effects[j] = clone.effects[j], clone.effects[i]
-					end
-					return clone
-				end)
-			end)
+			controller:moveEffect(selection.layerId, selection.effectId, step)
 		else
-			setLayers(function(prev)
-				local out = table.clone(prev)
-				local i = indexOf(out, function(layer)
-					return layer.id == selection.layerId
-				end)
-				local j = if i then i + step else nil
-				if i and j and out[j] then
-					out[i], out[j] = out[j], out[i]
-				end
-				return out
-			end)
+			controller:moveLayer(selection.layerId, step)
 		end
 	end
 
@@ -285,37 +100,17 @@ local function EffectsList(props: Props)
 		end
 
 		if selection.effectId then
-			setLayers(function(prev)
-				return mapLayer(prev, selection.layerId, function(layer)
-					local clone = cloneLayer(layer)
-					local i = indexOf(clone.effects, function(item)
-						return item.id == selection.effectId
-					end)
-					if i then
-						table.remove(clone.effects, i)
-					end
-					return clone
-				end)
-			end)
+			controller:removeEffect(selection.layerId, selection.effectId)
 		else
-			setLayers(function(prev)
-				local out = table.clone(prev)
-				local i = indexOf(out, function(layer)
-					return layer.id == selection.layerId
-				end)
-				if i then
-					table.remove(out, i)
-				end
-				return out
-			end)
+			controller:removeLayer(selection.layerId)
 		end
 		setSelection(nil :: any)
 	end
 
 	-- Resolve the current selection against the live state.
 
-	local selectedLayer: LayerItem?
-	local selectedEffect: EffectItem?
+	local selectedLayer: Controller.Layer?
+	local selectedEffect: Controller.LayerEffect?
 	if selection then
 		for _, layer in layers do
 			if layer.id == selection.layerId then
@@ -350,7 +145,7 @@ local function EffectsList(props: Props)
 					setSelection(makeSelection(layer.id, item.id))
 				end,
 				OnVisibilityToggled = function()
-					toggleEffectVisibility(layer.id, item.id)
+					controller:toggleEffectVisibility(layer.id, item.id)
 				end,
 			})
 		end
@@ -367,10 +162,10 @@ local function EffectsList(props: Props)
 				setSelection(makeSelection(layer.id))
 			end,
 			OnVisibilityToggled = function()
-				toggleLayerVisibility(layer.id)
+				controller:toggleLayerVisibility(layer.id)
 			end,
 			OnExpandToggled = function()
-				toggleLayerExpanded(layer.id)
+				controller:toggleLayerExpanded(layer.id)
 			end,
 		}, effectNodes)
 	end
@@ -389,10 +184,7 @@ local function EffectsList(props: Props)
 			LayoutOrder = 1,
 
 			OnValueSubmitted = function(newName)
-				updateEffect(layerId, effectId, function(effect)
-					effect.name = newName
-					return effect
-				end)
+				controller:setEffectName(layerId, effectId, newName)
 			end,
 		})
 
@@ -407,7 +199,7 @@ local function EffectsList(props: Props)
 					Effect = selectedEffect.effect,
 					Disabled = props.Disabled,
 					UpdateEffect = function(transform)
-						updateEffect(layerId, effectId, transform)
+						controller:updateEffect(layerId, effectId, transform)
 					end,
 				}),
 			})
@@ -421,7 +213,7 @@ local function EffectsList(props: Props)
 			LayoutOrder = 1,
 
 			OnValueSubmitted = function(newName)
-				setLayerName(layerId, newName)
+				controller:setLayerName(layerId, newName)
 			end,
 		})
 
@@ -432,7 +224,7 @@ local function EffectsList(props: Props)
 			LayoutOrder = 2,
 
 			OnValueSubmitted = function()
-				toggleLayerVisibility(layerId)
+				controller:toggleLayerVisibility(layerId)
 			end,
 		})
 	else

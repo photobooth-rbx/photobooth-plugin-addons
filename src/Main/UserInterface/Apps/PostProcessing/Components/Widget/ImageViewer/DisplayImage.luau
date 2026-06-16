@@ -20,7 +20,7 @@ export type Props = {
 
 	Title: string,
 	IsLoading: boolean,
-	Layers: { Controller.Layer },
+	Layers: { Controller.RenderLayer },
 }
 
 local function createAction(text: string, backgroundType: string, setBackgroundType: (string) -> ())

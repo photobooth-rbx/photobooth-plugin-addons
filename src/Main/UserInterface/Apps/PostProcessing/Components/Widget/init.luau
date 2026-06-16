@@ -14,7 +14,6 @@ local Hooks = require(uiRoot.Hooks)
 local EffectsList = require(script.EffectsList)
 local PresetsList = require(script.PresetsList)
 local ImageViewer = require(script.ImageViewer)
-local EffectDialog = require(script.EffectDialog)
 
 local ACTION_BAR_HEIGHT = 38
 
@@ -88,12 +87,11 @@ local function Widget(props: Props)
 	local controller = useController()
 	local selected = useSelectedEditImages()
 
-	local layers = controller:useLayers()
+	local layers = controller:useComposited()
 	local selectedTab, setSelectedTab = React.useState("Effects")
 	local isApplying, setIsApplying = React.useState(false)
-	local isDialogOpen, setIsDialogOpen = React.useState(false)
-	local loadingLayer, setLoadingLayer = React.useState(nil :: Controller.Layer?)
-	local disabled = isApplying or isDialogOpen or not not props.Disabled
+	local loadingLayer, setLoadingLayer = React.useState(nil :: Controller.RenderLayer?)
+	local disabled = isApplying or not not props.Disabled
 
 	React.useEffect(function()
 		if not isApplying then
@@ -143,10 +141,6 @@ local function Widget(props: Props)
 								Size = UDim2.fromScale(1, 1),
 								Controller = controller,
 								Disabled = disabled,
-
-								OnButtonActivated = function()
-									setIsDialogOpen(true)
-								end,
 							}),
 						},
 
@@ -326,7 +320,7 @@ local function Widget(props: Props)
 			}),
 		}),
 
-		Overlay = (isDialogOpen or isApplying) and React.createElement("ImageButton", {
+		Overlay = isApplying and React.createElement("ImageButton", {
 			BorderSizePixel = 0,
 			BackgroundTransparency = 0.7,
 			BackgroundColor3 = Color3.new(0, 0, 0),
@@ -334,25 +328,8 @@ local function Widget(props: Props)
 			AutoButtonColor = false,
 			Image = "",
 		}, {
-			Dots = isApplying and React.createElement(StudioComponents.LoadingDots, {
+			Dots = React.createElement(StudioComponents.LoadingDots, {
 				Size = UDim2.fromScale(1, 1),
-			}),
-
-			Dialog = (not isApplying and isDialogOpen) and React.createElement(EffectDialog, {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromOffset(220, 120),
-
-				Controller = controller,
-
-				OnConfirm = function(name, effectType)
-					setIsDialogOpen(false)
-					controller:createEffect(effectType, name)
-				end,
-
-				OnCancel = function()
-					setIsDialogOpen(false)
-				end,
 			}),
 		}),
 	})

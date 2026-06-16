@@ -13,7 +13,9 @@ local SignedVectorField = require(script.SignedVectorField)
 
 -- Types
 
-export type Layer = LayerComposer.Layer
+-- A composited render output, one per visible layer base image and per visible
+-- sub-effect, consumed by the ImageViewer and LayerComposer.
+export type RenderLayer = LayerComposer.Layer
 
 export type Effect<Properties> = {
 	kind: string,
@@ -24,7 +26,107 @@ export type Effect<Properties> = {
 	properties: Properties,
 }
 
-type AnyEffect = Effect<any>
+export type LayerEffect = {
+	id: string,
+	isVisible: boolean,
+	effect: Effect<any>,
+}
+
+-- The editable model: a layer is an image source (carrying its own offset/tint/
+-- transparency) that owns an ordered list of sub-effects.
+export type Layer = {
+	id: string,
+	name: string,
+	isVisible: boolean,
+	isExpanded: boolean,
+	offset: Vector2,
+	tintColor: Color3,
+	transparency: number,
+	effects: { LayerEffect },
+}
+
+-- Helpers
+
+local idCounter = 0
+local function nextId(): string
+	idCounter += 1
+	return tostring(idCounter)
+end
+
+local function indexOf<T>(list: { T }, predicate: (T) -> boolean): number?
+	for i, value in list do
+		if predicate(value) then
+			return i
+		end
+	end
+	return nil
+end
+
+local function cloneLayer(layer: Layer): Layer
+	local clone = table.clone(layer)
+	clone.effects = table.clone(layer.effects)
+	return clone
+end
+
+local function makeLayer(name: string): Layer
+	return {
+		id = nextId(),
+		name = name,
+		isVisible = true,
+		isExpanded = true,
+		offset = Vector2.zero,
+		tintColor = Color3.new(1, 1, 1),
+		transparency = 0,
+		effects = {},
+	}
+end
+
+local function makeLayerEffect(kind: string, name: string): LayerEffect
+	local entry = assert(Effects.getByKind(kind))
+	return {
+		id = nextId(),
+		isVisible = true,
+		effect = {
+			kind = kind,
+			name = name,
+			index = 0,
+			playerCreated = entry.playerCreated,
+			renderTicket = 0,
+			properties = entry.create(),
+		},
+	}
+end
+
+-- Returns a new layers array with `fn` applied to the layer matching `layerId`.
+local function mapLayer(layers: { Layer }, layerId: string, fn: (Layer) -> Layer): { Layer }
+	local out = table.clone(layers)
+	for i, layer in out do
+		if layer.id == layerId then
+			out[i] = fn(layer)
+			break
+		end
+	end
+	return out
+end
+
+-- Returns a new layers array with `fn` applied to the effect matching the ids.
+local function mapEffect(
+	layers: { Layer },
+	layerId: string,
+	effectId: string,
+	fn: (LayerEffect) -> LayerEffect
+): { Layer }
+	return mapLayer(layers, layerId, function(layer)
+		local clone = cloneLayer(layer)
+		local i = indexOf(clone.effects, function(item)
+			return item.id == effectId
+		end)
+		if i then
+			clone.effects[i] = fn(clone.effects[i])
+		end
+		return clone
+	end)
+end
 
 -- Class
 
@@ -39,8 +141,8 @@ export type PostProcessingController = typeof(setmetatable(
 		editImage: EditableImage?,
 		imageTrove: Trove.Trove,
 
-		observableEffects: ObservableValue.ObservableValue<{ ObservableValue.ObservableValue<AnyEffect> }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
+		observableComposited: ObservableValue.ObservableValue<{ RenderLayer }>,
 	},
 	PostProcessingControllerClass
 ))
@@ -51,16 +153,14 @@ function PostProcessingControllerStatic.new()
 	self.editImage = nil
 	self.imageTrove = Trove.new()
 
-	self.observableEffects = ObservableValue.new({})
-	self.observableLayers = ObservableValue.new({})
-
-	self:createEffect("Base Image", "Image")
+	self.observableLayers = ObservableValue.new({ makeLayer("Image") })
+	self.observableComposited = ObservableValue.new({})
 
 	return self
 end
 
 function PostProcessingControllerStatic.loadingLayer(editImage: EditableImage)
-	local layer: Layer = {
+	local layer: RenderLayer = {
 		name = "Image",
 		editImage = editImage,
 		offset = Vector2.zero,
@@ -71,28 +171,184 @@ function PostProcessingControllerStatic.loadingLayer(editImage: EditableImage)
 	return layer
 end
 
--- Public
+-- Editable model
 
-function PostProcessingControllerClass.createEffect(self: PostProcessingController, kind: string, name: string)
-	local effectEntry = assert(Effects.getByKind(kind))
-	local observableEffect = ObservableValue.new({
-		kind = kind,
-		name = name,
-		playerCreated = effectEntry.playerCreated,
-		index = #self.observableEffects:get() + 1,
-		renderTicket = 0,
-		properties = effectEntry.create(),
-	})
+function PostProcessingControllerClass.useLayers(self: PostProcessingController)
+	return self.observableLayers:use()
+end
 
-	self.observableEffects:update()(function(effects)
-		table.insert(effects, observableEffect :: any)
-		return effects
+function PostProcessingControllerClass.addLayer(self: PostProcessingController, name: string?): string
+	local layer = makeLayer(name or "Layer")
+	self.observableLayers:update()(function(layers)
+		local out = table.clone(layers)
+		table.insert(out, layer)
+		return out
+	end)
+	return layer.id
+end
+
+function PostProcessingControllerClass.addEffect(
+	self: PostProcessingController,
+	layerId: string,
+	kind: string,
+	name: string
+): string
+	local item = makeLayerEffect(kind, name)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.isExpanded = true
+			table.insert(clone.effects, item)
+			return clone
+		end)
+	end)
+	return item.id
+end
+
+function PostProcessingControllerClass.removeLayer(self: PostProcessingController, layerId: string)
+	self.observableLayers:update()(function(layers)
+		local out = table.clone(layers)
+		local i = indexOf(out, function(layer)
+			return layer.id == layerId
+		end)
+		if i then
+			table.remove(out, i)
+		end
+		return out
 	end)
 end
 
-function PostProcessingControllerClass.useEffects(self: PostProcessingController)
-	return self.observableEffects:use()
+function PostProcessingControllerClass.removeEffect(self: PostProcessingController, layerId: string, effectId: string)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			local i = indexOf(clone.effects, function(item)
+				return item.id == effectId
+			end)
+			if i then
+				table.remove(clone.effects, i)
+			end
+			return clone
+		end)
+	end)
 end
+
+function PostProcessingControllerClass.moveLayer(self: PostProcessingController, layerId: string, step: number)
+	self.observableLayers:update()(function(layers)
+		local out = table.clone(layers)
+		local i = indexOf(out, function(layer)
+			return layer.id == layerId
+		end)
+		local j = if i then i + step else nil
+		if i and j and out[j] then
+			out[i], out[j] = out[j], out[i]
+		end
+		return out
+	end)
+end
+
+function PostProcessingControllerClass.moveEffect(
+	self: PostProcessingController,
+	layerId: string,
+	effectId: string,
+	step: number
+)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			local i = indexOf(clone.effects, function(item)
+				return item.id == effectId
+			end)
+			local j = if i then i + step else nil
+			if i and j and clone.effects[j] then
+				clone.effects[i], clone.effects[j] = clone.effects[j], clone.effects[i]
+			end
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setLayerName(self: PostProcessingController, layerId: string, name: string)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.name = name
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.toggleLayerVisibility(self: PostProcessingController, layerId: string)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.isVisible = not clone.isVisible
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.toggleLayerExpanded(self: PostProcessingController, layerId: string)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.isExpanded = not clone.isExpanded
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.toggleEffectVisibility(
+	self: PostProcessingController,
+	layerId: string,
+	effectId: string
+)
+	self.observableLayers:update()(function(layers)
+		return mapEffect(layers, layerId, effectId, function(item)
+			local clone = table.clone(item)
+			clone.isVisible = not clone.isVisible
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setEffectName(
+	self: PostProcessingController,
+	layerId: string,
+	effectId: string,
+	name: string
+)
+	self.observableLayers:update()(function(layers)
+		return mapEffect(layers, layerId, effectId, function(item)
+			local clone = table.clone(item)
+			local effect = table.clone(item.effect)
+			effect.name = name
+			clone.effect = effect
+			return clone
+		end)
+	end)
+end
+
+-- Applies a Controller-style effect transform (the same contract the registered
+-- effect editor Components use) to a single sub-effect.
+function PostProcessingControllerClass.updateEffect(
+	self: PostProcessingController,
+	layerId: string,
+	effectId: string,
+	transform: (any) -> any
+)
+	self.observableLayers:update()(function(layers)
+		return mapEffect(layers, layerId, effectId, function(item)
+			local clone = table.clone(item)
+			local effect = table.clone(item.effect)
+			effect.properties = table.clone(item.effect.properties)
+			clone.effect = transform(effect)
+			return clone
+		end)
+	end)
+end
+
+-- Rendering
 
 function PostProcessingControllerClass.loadImageAsync(self: PostProcessingController, editImage: EditableImage)
 	if self.editImage == editImage then
@@ -104,8 +360,10 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 
 	local isImageLoaded = Future.new()
 
+	local alive = true
 	self.imageTrove:Add(function()
-		self.observableLayers:set({})
+		alive = false
+		self.observableComposited:set({})
 		if not isImageLoaded:isCompleted() then
 			isImageLoaded:complete()
 		end
@@ -127,114 +385,121 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			svfEdit:Destroy()
 		end)
 
-		local function watchEffect(observedEffect: ObservableValue.ObservableValue<AnyEffect>)
-			local renderReady = Future.new()
-
-			local effect = observedEffect:get()
-			local effectEntry = Effects.getByKind(effect.kind)
-
-			local layer: Layer = {
-				name = effect.name,
-				editImage = AssetService:CreateEditableImageAsync(Content.fromObject(editImage)),
-				offset = effect.properties.offset,
-				tintColor = effect.properties.color,
-				transparency = effect.properties.transparency,
-			}
-
-			local inputs: Effects.ImageInputs = {
-				img = editImage,
-				svf = svfEdit,
-				output = layer.editImage,
-			}
-
-			local watchTrove = Trove.new()
-			local asyncTrove = Trove.new()
-
-			local renderTicket = effect.renderTicket
-			watchTrove:Add(observedEffect:onChanged(function()
-				asyncTrove:Clean()
-				asyncTrove:Add(task.spawn(function()
-					local newRenderTicket = effect.renderTicket
-					if newRenderTicket ~= renderTicket then
-						renderTicket = newRenderTicket
-						effectEntry.render(inputs, effect.properties :: any)
-						if not renderReady:isCompleted() then
-							renderReady:complete()
-						end
-					end
-
-					layer.name = effect.name
-					layer.offset = effect.properties.offset
-					layer.tintColor = effect.properties.color
-					layer.transparency = effect.properties.transparency
-
-					self.observableLayers:update()(function(layers)
-						layers[effect.index] = layer
-						return layers
-					end)
-				end))
-			end))
-
-			asyncTrove:Add(task.spawn(function()
-				effectEntry.render(inputs, effect.properties :: any)
-				if not renderReady:isCompleted() then
-					renderReady:complete()
-				end
-			end))
-
-			self.observableLayers:update()(function(layers)
-				layers[effect.index] = layer
-				return layers
-			end)
-
-			local function cleanup()
-				watchTrove:Destroy()
-				asyncTrove:Destroy()
-				layer.editImage:Destroy()
-				if not renderReady:isCompleted() then
-					renderReady:complete()
-				end
-			end
-
-			return renderReady, cleanup
-		end
-
-		local watching = {}
+		-- The shared, unmodified base image; each visible layer references it and the
+		-- compose step applies that layer's offset/tint/transparency.
+		local baseEdit = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
 		self.imageTrove:Add(function()
-			for _observableEffect, cleanup in watching do
-				local cleanupCasted = cleanup :: () -> ()
-				cleanupCasted()
-			end
+			baseEdit:Destroy()
 		end)
 
-		for _, observedEffect in self.observableEffects:get() do
-			local renderReady, cleanup = watchEffect(observedEffect :: any)
-			watching[observedEffect] = cleanup
-			renderReady:expect()
-		end
+		-- Rendered sub-effect outputs, cached by effect id + renderTicket so only
+		-- effects whose properties actually changed are re-rendered.
+		type CacheEntry = { editImage: EditableImage, ticket: number }
+		local cache: { [string]: CacheEntry } = {}
+		self.imageTrove:Add(function()
+			for _, entry in cache do
+				entry.editImage:Destroy()
+			end
+			table.clear(cache)
+		end)
 
-		self.imageTrove:Add(self.observableEffects:onChanged(function()
-			local newWatching = {}
-			for _, observedEffect in self.observableEffects:get() do
-				if watching[observedEffect] then
-					newWatching[observedEffect] = watching[observedEffect]
-				else
-					local _renderReady, cleanup = watchEffect(observedEffect :: any)
-					newWatching[observedEffect] = cleanup
+		local function buildOnce()
+			local composited: { RenderLayer } = {}
+			local seen: { [string]: boolean } = {}
+
+			for _, layer in self.observableLayers:get() do
+				if not layer.isVisible then
+					continue
 				end
-				watching[observedEffect] = nil
+
+				table.insert(composited, {
+					name = layer.name,
+					editImage = baseEdit,
+					offset = layer.offset,
+					tintColor = layer.tintColor,
+					transparency = layer.transparency,
+				})
+
+				for _, item in layer.effects do
+					if not item.isVisible then
+						continue
+					end
+
+					local effect = item.effect
+					local cached = cache[item.id]
+
+					local entry: CacheEntry
+					if cached and cached.ticket == effect.renderTicket then
+						entry = cached
+					else
+						local output = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
+						local effectEntry = Effects.getByKind(effect.kind)
+						effectEntry.render({ img = editImage, svf = svfEdit, output = output }, effect.properties)
+
+						if not alive then
+							output:Destroy()
+							return
+						end
+
+						if cached then
+							cached.editImage:Destroy()
+						end
+						entry = { editImage = output, ticket = effect.renderTicket }
+						cache[item.id] = entry
+					end
+
+					seen[item.id] = true
+					table.insert(composited, {
+						name = effect.name,
+						editImage = entry.editImage,
+						offset = effect.properties.offset,
+						tintColor = effect.properties.color,
+						transparency = effect.properties.transparency,
+					})
+				end
 			end
 
-			for _observableEffect, cleanup in watching do
-				cleanup()
+			if not alive then
+				return
 			end
 
-			watching = newWatching
-		end))
+			for id, entry in cache do
+				if not seen[id] then
+					entry.editImage:Destroy()
+					cache[id] = nil
+				end
+			end
 
-		if not isImageLoaded:isCompleted() then
-			isImageLoaded:complete()
+			self.observableComposited:set(composited)
+			if not isImageLoaded:isCompleted() then
+				isImageLoaded:complete()
+			end
 		end
+
+		-- Coalesce rapid model changes: only one rebuild runs at a time, and any
+		-- change arriving mid-rebuild schedules exactly one more pass.
+		local running = false
+		local dirty = false
+		local function rebuild()
+			if running then
+				dirty = true
+				return
+			end
+			running = true
+			task.spawn(function()
+				repeat
+					dirty = false
+					local ok = pcall(buildOnce)
+					if not ok then
+						break
+					end
+				until not dirty or not alive
+				running = false
+			end)
+		end
+
+		rebuild()
+		self.imageTrove:Add(self.observableLayers:onChanged(rebuild))
 	end))
 
 	return isImageLoaded:expect()
@@ -248,22 +513,22 @@ end
 function PostProcessingControllerClass.composeImageAsync(self: PostProcessingController, editImage: EditableImage)
 	self:loadImageAsync(editImage)
 
-	local layers = self.observableLayers:get()
-	local composedEdit = LayerComposer.composeAsync(editImage, layers)
+	local composited = self.observableComposited:get()
+	local composedEdit = LayerComposer.composeAsync(editImage, composited)
 
 	self:unloadImage()
 
 	return composedEdit
 end
 
-function PostProcessingControllerClass.useLayers(self: PostProcessingController)
-	return self.observableLayers:use()
+function PostProcessingControllerClass.useComposited(self: PostProcessingController)
+	return self.observableComposited:use()
 end
 
 function PostProcessingControllerClass.Destroy(self: PostProcessingController)
 	self.imageTrove:Destroy()
-	self.observableEffects:Destroy()
 	self.observableLayers:Destroy()
+	self.observableComposited:Destroy()
 end
 
 --

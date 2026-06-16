@@ -13,7 +13,7 @@ export type Props = {
 	Size: UDim2?,
 
 	Title: string,
-	Layers: { Controller.Layer },
+	Layers: { Controller.RenderLayer },
 	IsLoading: boolean,
 }
 
