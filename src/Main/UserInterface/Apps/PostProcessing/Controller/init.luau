@@ -602,6 +602,19 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 				end
 			end
 
+			-- An image is loaded but nothing is visible (e.g. base image hidden, no
+			-- effects): show a blank canvas at the base resolution rather than letting
+			-- the viewer fall back to its "no image" state.
+			if #composited == 0 then
+				table.insert(composited, {
+					name = "Image",
+					editImage = baseEdit,
+					offset = Vector2.zero,
+					tintColor = Color3.new(1, 1, 1),
+					transparency = 1,
+				})
+			end
+
 			self.observableComposited:set(composited)
 			self.observableThumbnails:set(thumbnails)
 			if not isImageLoaded:isCompleted() then

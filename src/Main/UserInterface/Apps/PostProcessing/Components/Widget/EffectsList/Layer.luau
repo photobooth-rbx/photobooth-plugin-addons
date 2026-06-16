@@ -127,7 +127,7 @@ local function Layer(props: Props)
 			}),
 
 			ImageIcon = React.createElement("ImageLabel", {
-				BackgroundTransparency = if props.Image then 1 else 0.7,
+				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(38, 38),
 				LayoutOrder = 3,
 				ScaleType = Enum.ScaleType.Fit,
