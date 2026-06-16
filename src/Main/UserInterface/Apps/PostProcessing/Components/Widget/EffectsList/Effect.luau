@@ -26,8 +26,6 @@ local function Layer(props: Props)
 	local theme = StudioComponents.useTheme()
 
 	local mainBackground = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground)
-	-- An opaque blend toward the selected colour, equivalent to a 0.9-transparent tint
-	-- over the background, so the row stays opaque and its border never fades.
 	local backgroundColor = if props.IsSelected
 		then theme
 			:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder, Enum.StudioStyleGuideModifier.Selected)
