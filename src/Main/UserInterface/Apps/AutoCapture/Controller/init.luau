@@ -529,8 +529,10 @@ function AutoCaptureControllerClass._watchIsSynced(self: AutoCaptureController)
 
 			if isSynced then
 				modelState.focus.dynamicState = table.clone(self.dynamicObservableState:get())
+				self.focusShared = table.clone(modelState.focus)
 				self.focusShared.dynamicState = table.clone(modelState.focus.dynamicState)
 			else
+				modelState.focus = table.clone(self.focusShared)
 				modelState.focus.dynamicState = table.clone(self.focusShared.dynamicState)
 			end
 
@@ -563,9 +565,17 @@ function AutoCaptureControllerClass.getFocusedModel(self: AutoCaptureController)
 end
 
 function AutoCaptureControllerClass.loadModel(self: AutoCaptureController, model: Model)
-	local focus = createNewFocus()
 	local animationManager = AnimationManager.new(model)
 	globalTicket = globalTicket + 1
+
+	local focus
+	local currentModelState = self.focusedModel and self.stateByModel[self.focusedModel]
+	if currentModelState then
+		focus = table.clone(currentModelState.focus)
+		focus.dynamicState = table.clone(currentModelState.focus.dynamicState)
+	else
+		focus = createNewFocus()
+	end
 
 	self.stateByModel[model] = {
 		focus = focus,
