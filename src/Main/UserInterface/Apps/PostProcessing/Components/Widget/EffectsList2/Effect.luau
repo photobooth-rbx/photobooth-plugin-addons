@@ -14,6 +14,9 @@ export type Props = {
 	IsVisible: boolean,
 	IsSelected: boolean,
 
+	OnSelected: (() -> ())?,
+	OnVisibilityToggled: (() -> ())?,
+
 	LayoutOrder: number?,
 	ZIndex: number?,
 	Disabled: boolean?,
@@ -22,15 +25,28 @@ export type Props = {
 local function Layer(props: Props)
 	local theme = StudioComponents.useTheme()
 
+	local mainBackground = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground)
+	-- An opaque blend toward the selected colour, equivalent to a 0.9-transparent tint
+	-- over the background, so the row stays opaque and its border never fades.
+	local backgroundColor = if props.IsSelected
+		then theme
+			:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder, Enum.StudioStyleGuideModifier.Selected)
+			:Lerp(mainBackground, 0.9)
+		else mainBackground
+
 	return React.createElement("Frame", {
-		BackgroundTransparency = if props.IsSelected then 0.9 else 0,
-		BackgroundColor3 = if props.IsSelected
-			then theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder, Enum.StudioStyleGuideModifier.Selected)
-			else theme:GetColor(Enum.StudioStyleGuideColor.MainBackground),
+		Active = true,
+		BackgroundColor3 = backgroundColor,
 		BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 		Size = UDim2.new(1, 0, 0, 32),
 		LayoutOrder = props.LayoutOrder,
 		ZIndex = props.ZIndex,
+
+		[React.Event.InputBegan] = function(_, input: InputObject)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 and props.OnSelected then
+				props.OnSelected()
+			end
+		end,
 	}, {
 		UIPadding = React.createElement("UIPadding", {
 			PaddingTop = UDim.new(0, 4),
@@ -57,7 +73,9 @@ local function Layer(props: Props)
 			LayoutOrder = 1,
 
 			OnActivated = function()
-				-- setIsVisible(not isVisible)
+				if props.OnVisibilityToggled then
+					props.OnVisibilityToggled()
+				end
 			end,
 		}),
 

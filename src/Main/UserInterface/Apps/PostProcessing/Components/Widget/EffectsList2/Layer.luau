@@ -18,6 +18,10 @@ export type Props = {
 	IsSelected: boolean,
 	IsExpanded: boolean?,
 
+	OnSelected: (() -> ())?,
+	OnVisibilityToggled: (() -> ())?,
+	OnExpandToggled: (() -> ())?,
+
 	LayoutOrder: number?,
 	ZIndex: number?,
 	Disabled: boolean?,
@@ -27,6 +31,17 @@ export type Props = {
 
 local function Layer(props: Props)
 	local theme = StudioComponents.useTheme()
+
+	local hasSubEffects = props.children ~= nil and next(props.children :: any) ~= nil
+
+	local mainBackground = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground)
+	-- An opaque blend toward the selected colour, equivalent to a 0.9-transparent tint
+	-- over the background, so the row stays opaque and its border never fades.
+	local backgroundColor = if props.IsSelected
+		then theme
+			:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder, Enum.StudioStyleGuideModifier.Selected)
+			:Lerp(mainBackground, 0.9)
+		else mainBackground
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -44,13 +59,17 @@ local function Layer(props: Props)
 		}),
 
 		LineContent = React.createElement("Frame", {
-			BackgroundTransparency = if props.IsSelected then 0.9 else 0,
-			BackgroundColor3 = if props.IsSelected
-				then theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder, Enum.StudioStyleGuideModifier.Selected)
-				else theme:GetColor(Enum.StudioStyleGuideColor.MainBackground),
+			Active = true,
+			BackgroundColor3 = backgroundColor,
 			BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 			Size = UDim2.new(1, 0, 0, 48),
 			LayoutOrder = 1,
+
+			[React.Event.InputBegan] = function(_, input: InputObject)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 and props.OnSelected then
+					props.OnSelected()
+				end
+			end,
 		}, {
 			UIPadding = React.createElement("UIPadding", {
 				PaddingTop = UDim.new(0, 4),
@@ -77,11 +96,13 @@ local function Layer(props: Props)
 				LayoutOrder = 1,
 
 				OnActivated = function()
-					-- setIsVisible(not isVisible)
+					if props.OnVisibilityToggled then
+						props.OnVisibilityToggled()
+					end
 				end,
 			}),
 
-			Expand = props.IsExpanded ~= nil and React.createElement(LucideIconButton, {
+			Expand = props.IsExpanded ~= nil and hasSubEffects and React.createElement(LucideIconButton, {
 				AnchorPoint = Vector2.new(0, 0.5),
 				Position = UDim2.fromScale(0, 0.5),
 				Size = UDim2.fromOffset(22, 22),
@@ -90,8 +111,18 @@ local function Layer(props: Props)
 				LayoutOrder = 2,
 
 				OnActivated = function()
-					-- setIsVisible(not isVisible)
+					if props.OnExpandToggled then
+						props.OnExpandToggled()
+					end
 				end,
+			}),
+
+			-- Reserve the chevron's footprint so the icon/title don't shift when a
+			-- layer has no sub-effects.
+			ExpandSpacer = props.IsExpanded ~= nil and not hasSubEffects and React.createElement("Frame", {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromOffset(22, 22),
+				LayoutOrder = 2,
 			}),
 
 			ImageIcon = React.createElement("Frame", {
@@ -123,11 +154,17 @@ local function Layer(props: Props)
 		}),
 
 		Content = React.createElement("Frame", {
-			BackgroundTransparency = 0.7,
+			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			Visible = props.IsExpanded,
 			LayoutOrder = 2,
+		}, {
+			UIListLayout = React.createElement("UIListLayout", {
+				FillDirection = Enum.FillDirection.Vertical,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, 0),
+			}),
 		}, props.children),
 	})
 end
