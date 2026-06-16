@@ -227,6 +227,52 @@ local function EffectsList(props: Props)
 				controller:toggleLayerVisibility(layerId)
 			end,
 		})
+
+		propertyNodes.ShowBaseImage = React.createElement(StudioProperties.Boolean, {
+			FieldName = "Show Base Image",
+			Value = selectedLayer.showBaseImage,
+			Disabled = props.Disabled,
+			LayoutOrder = 3,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerShowBaseImage(layerId, newValue)
+			end,
+		})
+
+		propertyNodes.Offset = React.createElement(StudioProperties.Vector2, {
+			FieldName = "Offset",
+			Value = selectedLayer.offset,
+			Disabled = props.Disabled,
+			LayoutOrder = 4,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerOffset(layerId, newValue)
+			end,
+		})
+
+		propertyNodes.Transparency = React.createElement(StudioProperties.Number, {
+			FieldName = "Transparency",
+			Min = 0,
+			Max = 1,
+			Value = selectedLayer.transparency,
+			Disabled = props.Disabled,
+			LayoutOrder = 5,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerTransparency(layerId, newValue)
+			end,
+		})
+
+		propertyNodes.Color = React.createElement(StudioProperties.Color3, {
+			FieldName = "Tint Color",
+			Value = selectedLayer.tintColor,
+			Disabled = props.Disabled,
+			LayoutOrder = 6,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerTint(layerId, newValue)
+			end,
+		})
 	else
 		propertyNodes.Empty = React.createElement("TextLabel", {
 			BackgroundTransparency = 1,

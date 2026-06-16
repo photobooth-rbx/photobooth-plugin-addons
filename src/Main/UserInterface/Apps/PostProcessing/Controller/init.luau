@@ -39,6 +39,7 @@ export type Layer = {
 	name: string,
 	isVisible: boolean,
 	isExpanded: boolean,
+	showBaseImage: boolean,
 	offset: Vector2,
 	tintColor: Color3,
 	transparency: number,
@@ -74,6 +75,7 @@ local function makeLayer(name: string): Layer
 		name = name,
 		isVisible = true,
 		isExpanded = true,
+		showBaseImage = true,
 		offset = Vector2.zero,
 		tintColor = Color3.new(1, 1, 1),
 		transparency = 0,
@@ -278,6 +280,54 @@ function PostProcessingControllerClass.setLayerName(self: PostProcessingControll
 	end)
 end
 
+function PostProcessingControllerClass.setLayerOffset(self: PostProcessingController, layerId: string, offset: Vector2)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.offset = offset
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setLayerTint(self: PostProcessingController, layerId: string, tintColor: Color3)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.tintColor = tintColor
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setLayerTransparency(
+	self: PostProcessingController,
+	layerId: string,
+	transparency: number
+)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.transparency = transparency
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setLayerShowBaseImage(
+	self: PostProcessingController,
+	layerId: string,
+	show: boolean
+)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.showBaseImage = show
+			return clone
+		end)
+	end)
+end
+
 function PostProcessingControllerClass.toggleLayerVisibility(self: PostProcessingController, layerId: string)
 	self.observableLayers:update()(function(layers)
 		return mapLayer(layers, layerId, function(layer)
@@ -412,13 +462,15 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					continue
 				end
 
-				table.insert(composited, {
-					name = layer.name,
-					editImage = baseEdit,
-					offset = layer.offset,
-					tintColor = layer.tintColor,
-					transparency = layer.transparency,
-				})
+				if layer.showBaseImage then
+					table.insert(composited, {
+						name = layer.name,
+						editImage = baseEdit,
+						offset = layer.offset,
+						tintColor = layer.tintColor,
+						transparency = layer.transparency,
+					})
+				end
 
 				for _, item in layer.effects do
 					if not item.isVisible then
@@ -448,13 +500,20 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						cache[item.id] = entry
 					end
 
+					-- Fold the layer's image properties into each sub-effect: offsets add,
+					-- tints multiply, and transparencies compose on the alpha channel.
+					local layerTint, effectTint = layer.tintColor, effect.properties.color
 					seen[item.id] = true
 					table.insert(composited, {
 						name = effect.name,
 						editImage = entry.editImage,
-						offset = effect.properties.offset,
-						tintColor = effect.properties.color,
-						transparency = effect.properties.transparency,
+						offset = layer.offset + effect.properties.offset,
+						tintColor = Color3.new(
+							layerTint.R * effectTint.R,
+							layerTint.G * effectTint.G,
+							layerTint.B * effectTint.B
+						),
+						transparency = 1 - (1 - layer.transparency) * (1 - effect.properties.transparency),
 					})
 				end
 			end
