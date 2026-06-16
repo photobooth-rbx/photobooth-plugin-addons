@@ -11,11 +11,9 @@ local Effects = require(postProcessingRoot.Effects)
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 
-local widgetRoot = script:FindFirstAncestor("Widget")
-local EffectDialog = require(widgetRoot.EffectDialog)
-
 local Layer = require(script.Layer)
 local Effect = require(script.Effect)
+local EffectDialog = require(script.EffectDialog)
 local UnderlineIconButton = require(script.UnderlineIconButton)
 
 local SCROLL_GRADIENT_INSET_HEIGHT = 22

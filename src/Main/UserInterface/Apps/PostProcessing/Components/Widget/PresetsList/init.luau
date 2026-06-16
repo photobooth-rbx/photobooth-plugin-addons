@@ -10,6 +10,8 @@ local Controller = require(postProcessingRoot.Controller)
 local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 
+local PresetDialog = require(script.PresetDialog)
+
 local SCROLL_GRADIENT_INSET_HEIGHT = 22
 local ADD_EFFECT_BUTTON_HEIGHT = 32
 local SAVE_ICON = assert(Lucide.GetAsset("save", 16))
@@ -106,6 +108,7 @@ local function PresetsList(props: Props)
 	local controller = props.Controller
 
 	local presets = controller:usePresets()
+	local isDialogOpen, setIsDialogOpen = React.useState(false)
 
 	local presetNodes: { [string]: React.ReactNode } = {}
 	for order, preset in presets do
@@ -220,9 +223,36 @@ local function PresetsList(props: Props)
 					},
 
 					OnActivated = function()
-						controller:addPreset()
+						setIsDialogOpen(true)
 					end,
 				}),
+			}),
+		}),
+
+		Overlay = isDialogOpen and React.createElement("ImageButton", {
+			BorderSizePixel = 0,
+			BackgroundTransparency = 0.7,
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			Size = UDim2.fromScale(1, 1),
+			AutoButtonColor = false,
+			Image = "",
+		}, {
+			Dialog = React.createElement(PresetDialog, {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(220, 90),
+
+				DefaultName = "New Preset",
+
+				OnConfirm = function(name)
+					setIsDialogOpen(false)
+					local trimmed = (name:gsub("^%s*(.-)%s*$", "%1"))
+					controller:addPreset(if trimmed ~= "" then trimmed else nil)
+				end,
+
+				OnCancel = function()
+					setIsDialogOpen(false)
+				end,
 			}),
 		}),
 	})
