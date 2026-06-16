@@ -11,7 +11,7 @@ local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 local Hooks = require(uiRoot.Hooks)
 
-local EffectsList = require(script.EffectsList2)
+local EffectsList = require(script.EffectsList)
 local PresetsList = require(script.PresetsList)
 local ImageViewer = require(script.ImageViewer)
 local EffectDialog = require(script.EffectDialog)
