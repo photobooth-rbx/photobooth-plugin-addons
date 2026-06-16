@@ -53,6 +53,7 @@ local function EffectsList(props: Props)
 	local controller = props.Controller
 
 	local layers = controller:useLayers()
+	local thumbnails = controller:useThumbnails()
 	local selection, setSelection = React.useState(nil :: Selection?)
 
 	-- The add-effect dialog targets a layer captured when it opens, so changing the
@@ -132,6 +133,8 @@ local function EffectsList(props: Props)
 
 	local layerNodes: { [string]: React.ReactNode } = {}
 	for layerOrder, layer in layers do
+		local thumbnail = thumbnails[layer.id]
+
 		local effectNodes: { [string]: React.ReactNode } = {}
 		for effectOrder, item in layer.effects do
 			effectNodes["Effect_" .. item.id] = React.createElement(Effect, {
@@ -152,6 +155,7 @@ local function EffectsList(props: Props)
 
 		layerNodes["Layer_" .. layer.id] = React.createElement(Layer, {
 			Title = layer.name,
+			Image = if thumbnail then Content.fromObject(thumbnail) else nil,
 			IsVisible = layer.isVisible,
 			IsSelected = selection ~= nil and selection.layerId == layer.id and selection.effectId == nil,
 			IsExpanded = layer.isExpanded,

@@ -143,6 +143,7 @@ export type PostProcessingController = typeof(setmetatable(
 		editImage: EditableImage?,
 		imageTrove: Trove.Trove,
 
+		observableThumbnails: ObservableValue.ObservableValue<{ [string]: EditableImage }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 		observableComposited: ObservableValue.ObservableValue<{ RenderLayer }>,
 	},
@@ -155,6 +156,7 @@ function PostProcessingControllerStatic.new()
 	self.editImage = nil
 	self.imageTrove = Trove.new()
 
+	self.observableThumbnails = ObservableValue.new({} :: { [string]: EditableImage })
 	self.observableLayers = ObservableValue.new({ makeLayer("Image") })
 	self.observableComposited = ObservableValue.new({})
 
@@ -414,6 +416,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 	self.imageTrove:Add(function()
 		alive = false
 		self.observableComposited:set({})
+		self.observableThumbnails:set({})
 		if not isImageLoaded:isCompleted() then
 			isImageLoaded:complete()
 		end
@@ -453,20 +456,46 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			table.clear(cache)
 		end)
 
+		-- Per-layer composite thumbnails, cached by a signature of everything that
+		-- affects the layer's composited appearance.
+		type ThumbnailEntry = { image: EditableImage, signature: string }
+		local thumbnailCache: { [string]: ThumbnailEntry } = {}
+		self.imageTrove:Add(function()
+			for _, entry in thumbnailCache do
+				entry.image:Destroy()
+			end
+			table.clear(thumbnailCache)
+		end)
+
 		local function buildOnce()
 			local composited: { RenderLayer } = {}
-			local seen: { [string]: boolean } = {}
+			local thumbnails: { [string]: EditableImage } = {}
+			local seenEffects: { [string]: boolean } = {}
+			local seenLayers: { [string]: boolean } = {}
 
 			for _, layer in self.observableLayers:get() do
 				if not layer.isVisible then
 					continue
 				end
 
+				-- `layerRenderLayers` is just this layer, composited into its thumbnail; it
+				-- omits the layer's global offset so moving the layer doesn't push the
+				-- thumbnail off-canvas. The flat `composited` list (main preview) keeps it.
+				local layerRenderLayers: { RenderLayer } = {}
+				local signatureParts: { string } = { `L:{layer.tintColor}:{layer.transparency}:{layer.showBaseImage}` }
+
 				if layer.showBaseImage then
 					table.insert(composited, {
 						name = layer.name,
 						editImage = baseEdit,
 						offset = layer.offset,
+						tintColor = layer.tintColor,
+						transparency = layer.transparency,
+					})
+					table.insert(layerRenderLayers, {
+						name = layer.name,
+						editImage = baseEdit,
+						offset = Vector2.zero,
 						tintColor = layer.tintColor,
 						transparency = layer.transparency,
 					})
@@ -503,18 +532,55 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					-- Fold the layer's image properties into each sub-effect: offsets add,
 					-- tints multiply, and transparencies compose on the alpha channel.
 					local layerTint, effectTint = layer.tintColor, effect.properties.color
-					seen[item.id] = true
+					local foldedTint =
+						Color3.new(layerTint.R * effectTint.R, layerTint.G * effectTint.G, layerTint.B * effectTint.B)
+					local foldedTransparency = 1 - (1 - layer.transparency) * (1 - effect.properties.transparency)
+
+					seenEffects[item.id] = true
 					table.insert(composited, {
 						name = effect.name,
 						editImage = entry.editImage,
 						offset = layer.offset + effect.properties.offset,
-						tintColor = Color3.new(
-							layerTint.R * effectTint.R,
-							layerTint.G * effectTint.G,
-							layerTint.B * effectTint.B
-						),
-						transparency = 1 - (1 - layer.transparency) * (1 - effect.properties.transparency),
+						tintColor = foldedTint,
+						transparency = foldedTransparency,
 					})
+					-- Thumbnail keeps the effect's own offset but not the layer's.
+					table.insert(layerRenderLayers, {
+						name = effect.name,
+						editImage = entry.editImage,
+						offset = effect.properties.offset,
+						tintColor = foldedTint,
+						transparency = foldedTransparency,
+					})
+					table.insert(
+						signatureParts,
+						`{item.id}:{effect.renderTicket}:{effect.properties.offset}:{foldedTint}:{foldedTransparency}`
+					)
+				end
+
+				-- Compose just this layer's render layers into its thumbnail, reusing the
+				-- cached image whenever nothing affecting the layer changed.
+				seenLayers[layer.id] = true
+				if #layerRenderLayers > 0 then
+					local signature = table.concat(signatureParts, "|")
+					local cachedThumb = thumbnailCache[layer.id]
+					if cachedThumb and cachedThumb.signature == signature then
+						thumbnails[layer.id] = cachedThumb.image
+					else
+						local image = LayerComposer.composeAsync(editImage, layerRenderLayers)
+						if not alive then
+							image:Destroy()
+							return
+						end
+						if cachedThumb then
+							cachedThumb.image:Destroy()
+						end
+						thumbnailCache[layer.id] = { image = image, signature = signature }
+						thumbnails[layer.id] = image
+					end
+				elseif thumbnailCache[layer.id] then
+					thumbnailCache[layer.id].image:Destroy()
+					thumbnailCache[layer.id] = nil
 				end
 			end
 
@@ -523,13 +589,21 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			end
 
 			for id, entry in cache do
-				if not seen[id] then
+				if not seenEffects[id] then
 					entry.editImage:Destroy()
 					cache[id] = nil
 				end
 			end
 
+			for id, entry in thumbnailCache do
+				if not seenLayers[id] then
+					entry.image:Destroy()
+					thumbnailCache[id] = nil
+				end
+			end
+
 			self.observableComposited:set(composited)
+			self.observableThumbnails:set(thumbnails)
 			if not isImageLoaded:isCompleted() then
 				isImageLoaded:complete()
 			end
@@ -569,6 +643,10 @@ function PostProcessingControllerClass.unloadImage(self: PostProcessingControlle
 	self.editImage = nil
 end
 
+function PostProcessingControllerClass.useThumbnails(self: PostProcessingController)
+	return self.observableThumbnails:use()
+end
+
 function PostProcessingControllerClass.composeImageAsync(self: PostProcessingController, editImage: EditableImage)
 	self:loadImageAsync(editImage)
 
@@ -586,6 +664,7 @@ end
 
 function PostProcessingControllerClass.Destroy(self: PostProcessingController)
 	self.imageTrove:Destroy()
+	self.observableThumbnails:Destroy()
 	self.observableLayers:Destroy()
 	self.observableComposited:Destroy()
 end

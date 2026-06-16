@@ -14,6 +14,7 @@ local ARROW_DOWN = assert(Lucide.GetAsset("chevron-down", 16))
 
 export type Props = {
 	Title: string,
+	Image: Content?,
 	IsVisible: boolean,
 	IsSelected: boolean,
 	IsExpanded: boolean?,
@@ -125,10 +126,22 @@ local function Layer(props: Props)
 				LayoutOrder = 2,
 			}),
 
-			ImageIcon = React.createElement("Frame", {
-				BackgroundTransparency = 0.7,
+			ImageIcon = React.createElement("ImageLabel", {
+				BackgroundTransparency = if props.Image then 1 else 0.7,
 				Size = UDim2.fromOffset(38, 38),
 				LayoutOrder = 3,
+				ScaleType = Enum.ScaleType.Fit,
+				ImageContent = props.Image,
+			}, {
+				UIStroke = React.createElement("UIStroke", {
+					Thickness = 1,
+					Transparency = 0,
+					Color = theme:GetColor(
+						Enum.StudioStyleGuideColor.InputFieldBorder,
+						Enum.StudioStyleGuideModifier.Selected
+					),
+					BorderStrokePosition = Enum.BorderStrokePosition.Outer,
+				}),
 			}),
 
 			Title = React.createElement("TextLabel", {
