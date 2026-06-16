@@ -16,6 +16,7 @@ local EffectDialog = require(widgetRoot.EffectDialog)
 
 local Layer = require(script.Layer)
 local Effect = require(script.Effect)
+local UnderlineIconButton = require(script.UnderlineIconButton)
 
 local SCROLL_GRADIENT_INSET_HEIGHT = 22
 local MIDDLE_BAR_HEIGHT = 22
@@ -466,6 +467,18 @@ local function EffectsList(props: Props)
 		})
 	end
 
+	-- The "add" actions get text labels so it's clear which creates a layer vs an
+	-- effect; the directional move/delete actions stay as compact icons.
+	local function addButton(text: string, icon, layoutOrder: number, disabled: boolean?, onActivated: () -> ())
+		return React.createElement(UnderlineIconButton, {
+			Text = text,
+			Icon = icon,
+			Disabled = disabled,
+			LayoutOrder = layoutOrder,
+			OnActivated = onActivated,
+		})
+	end
+
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		AnchorPoint = props.AnchorPoint,
@@ -524,35 +537,58 @@ local function EffectsList(props: Props)
 				Size = UDim2.new(1, 0, 0, MIDDLE_BAR_HEIGHT),
 				LayoutOrder = 2,
 			}, {
-				UIPadding = React.createElement("UIPadding", {
-					PaddingLeft = UDim.new(0, 4),
-					PaddingRight = UDim.new(0, 4),
-				}),
-
-				UIListLayout = React.createElement("UIListLayout", {
-					FillDirection = Enum.FillDirection.Horizontal,
-					HorizontalAlignment = Enum.HorizontalAlignment.Left,
-					VerticalAlignment = Enum.VerticalAlignment.Center,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 2),
-				}),
-
-				AddLayer = toolbarButton(PLUS_ICON, 1, props.Disabled, addLayer),
-				AddEffect = toolbarButton(SPARKLES_ICON, 2, props.Disabled or #layers == 0, openAddEffect),
-
-				Separator = React.createElement("Frame", {
+				Left = React.createElement("Frame", {
 					BackgroundTransparency = 1,
-					Size = UDim2.fromOffset(8, 1),
-					LayoutOrder = 3,
+					Size = UDim2.fromScale(1, 1),
+				}, {
+					UIPadding = React.createElement("UIPadding", {
+						PaddingLeft = UDim.new(0, 4),
+						PaddingRight = UDim.new(0, 4),
+					}),
+
+					UIListLayout = React.createElement("UIListLayout", {
+						FillDirection = Enum.FillDirection.Horizontal,
+						HorizontalAlignment = Enum.HorizontalAlignment.Left,
+						VerticalAlignment = Enum.VerticalAlignment.Center,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 12),
+					}),
+
+					AddLayer = addButton("Add Layer", PLUS_ICON, 1, props.Disabled, addLayer),
+					AddEffect = addButton(
+						"Add Effect",
+						SPARKLES_ICON,
+						2,
+						props.Disabled or #layers == 0,
+						openAddEffect
+					),
 				}),
 
-				MoveUp = toolbarButton(UP_ICON, 4, props.Disabled or not hasSelection, function()
-					moveSelected(-1)
-				end),
-				MoveDown = toolbarButton(DOWN_ICON, 5, props.Disabled or not hasSelection, function()
-					moveSelected(1)
-				end),
-				Delete = toolbarButton(TRASH_ICON, 6, props.Disabled or not hasSelection, deleteSelected),
+				Right = React.createElement("Frame", {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+				}, {
+					UIPadding = React.createElement("UIPadding", {
+						PaddingLeft = UDim.new(0, 4),
+						PaddingRight = UDim.new(0, 4),
+					}),
+
+					UIListLayout = React.createElement("UIListLayout", {
+						FillDirection = Enum.FillDirection.Horizontal,
+						HorizontalAlignment = Enum.HorizontalAlignment.Right,
+						VerticalAlignment = Enum.VerticalAlignment.Center,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 2),
+					}),
+
+					MoveUp = toolbarButton(UP_ICON, 4, props.Disabled or not hasSelection, function()
+						moveSelected(-1)
+					end),
+					MoveDown = toolbarButton(DOWN_ICON, 5, props.Disabled or not hasSelection, function()
+						moveSelected(1)
+					end),
+					Delete = toolbarButton(TRASH_ICON, 6, props.Disabled or not hasSelection, deleteSelected),
+				}),
 			}),
 
 			ScrollBottom = React.createElement(StudioProperties.VerticalScroll, {
