@@ -3,6 +3,8 @@ local StudioComponents = require(pluginRoot.Packages.StudioComponents)
 local Lucide = require(pluginRoot.Packages.Lucide)
 local React = require(pluginRoot.Packages.React)
 
+local IMAGE_ICON = assert(Lucide.GetAsset("images", 48))
+
 export type Props = {
 	AnchorPoint: Vector2,
 	Position: UDim2,
@@ -11,7 +13,6 @@ export type Props = {
 
 local function DisplayNoImage(props: Props)
 	local theme = StudioComponents.useTheme()
-	local imageIcon = assert(Lucide.GetAsset("images", 48))
 
 	return React.createElement("Frame", {
 		AnchorPoint = props.AnchorPoint,
@@ -29,13 +30,13 @@ local function DisplayNoImage(props: Props)
 
 		Icon = React.createElement("ImageLabel", {
 			LayoutOrder = 0,
-			Size = UDim2.fromOffset(imageIcon.ImageRectSize.X, imageIcon.ImageRectSize.Y),
+			Size = UDim2.fromOffset(IMAGE_ICON.ImageRectSize.X, IMAGE_ICON.ImageRectSize.Y),
 			BackgroundTransparency = 1,
-			Image = imageIcon.Url,
+			Image = IMAGE_ICON.Url,
 			ImageColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText),
 			ImageTransparency = 0.7,
-			ImageRectSize = imageIcon.ImageRectSize,
-			ImageRectOffset = imageIcon.ImageRectOffset,
+			ImageRectSize = IMAGE_ICON.ImageRectSize,
+			ImageRectOffset = IMAGE_ICON.ImageRectOffset,
 		}),
 		Label2 = React.createElement("TextLabel", {
 			LayoutOrder = 3,

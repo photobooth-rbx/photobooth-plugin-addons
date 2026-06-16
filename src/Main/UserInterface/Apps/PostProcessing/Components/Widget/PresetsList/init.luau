@@ -74,7 +74,7 @@ local function PresetRow(props: PresetRowProps)
 
 		Title = React.createElement("TextLabel", {
 			BackgroundTransparency = 1,
-			Size = UDim2.new(1, -40, 1, 0),
+			Size = UDim2.new(1, -28, 1, 0),
 			FontFace = Font.fromName("SourceSansPro"),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,

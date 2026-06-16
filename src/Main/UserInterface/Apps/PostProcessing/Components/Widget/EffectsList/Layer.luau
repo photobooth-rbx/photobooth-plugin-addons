@@ -12,6 +12,9 @@ local EYE_OFF_ICON = assert(Lucide.GetAsset("eye-off", 16))
 local ARROW_RIGHT = assert(Lucide.GetAsset("chevron-right", 16))
 local ARROW_DOWN = assert(Lucide.GetAsset("chevron-down", 16))
 
+local TRASH_ICON = assert(Lucide.GetAsset("trash", 16))
+local IMAGE_ICON = assert(Lucide.GetAsset("file-image", 24))
+
 export type Props = {
 	Title: string,
 	Image: Content?,
@@ -22,6 +25,7 @@ export type Props = {
 	OnSelected: (() -> ())?,
 	OnVisibilityToggled: (() -> ())?,
 	OnExpandToggled: (() -> ())?,
+	OnDelete: (() -> ())?,
 
 	LayoutOrder: number?,
 	ZIndex: number?,
@@ -131,12 +135,25 @@ local function Layer(props: Props)
 				ScaleType = Enum.ScaleType.Fit,
 				ImageContent = props.Image,
 			}, {
+				Icon = not props.Image and React.createElement("ImageLabel", {
+					Size = UDim2.fromOffset(IMAGE_ICON.ImageRectSize.X, IMAGE_ICON.ImageRectSize.Y),
+					Position = UDim2.fromScale(0.5, 0.5),
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundTransparency = 1,
+					Image = IMAGE_ICON.Url,
+					ImageColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Button),
+					ImageRectSize = IMAGE_ICON.ImageRectSize,
+					ImageRectOffset = IMAGE_ICON.ImageRectOffset,
+				}),
+
 				UIStroke = React.createElement("UIStroke", {
 					Thickness = 1,
 					Transparency = 0,
 					Color = theme:GetColor(
 						Enum.StudioStyleGuideColor.InputFieldBorder,
-						Enum.StudioStyleGuideModifier.Selected
+						if props.IsSelected
+							then Enum.StudioStyleGuideModifier.Hover
+							else Enum.StudioStyleGuideModifier.Default
 					),
 					BorderStrokePosition = Enum.BorderStrokePosition.Outer,
 				}),
@@ -144,7 +161,7 @@ local function Layer(props: Props)
 
 			Title = React.createElement("TextLabel", {
 				BackgroundTransparency = 1,
-				Size = UDim2.new(1, -48, 1, 0),
+				Size = UDim2.new(1, -120, 1, 0),
 				FontFace = Font.fromName("SourceSansPro"),
 				TextYAlignment = Enum.TextYAlignment.Center,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -161,6 +178,22 @@ local function Layer(props: Props)
 					PaddingLeft = UDim.new(0, 4),
 					PaddingRight = UDim.new(0, 4),
 				}),
+			}),
+
+			Delete = React.createElement(LucideIconButton, {
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.fromScale(0, 0.5),
+				Size = UDim2.fromOffset(22, 22),
+				IconSize = UDim2.fromOffset(14, 14),
+				Icon = TRASH_ICON,
+				Disabled = props.Disabled,
+				LayoutOrder = 5,
+
+				OnActivated = function()
+					if props.OnDelete then
+						props.OnDelete()
+					end
+				end,
 			}),
 		}),
 

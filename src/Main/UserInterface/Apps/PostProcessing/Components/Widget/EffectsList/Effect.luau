@@ -9,6 +9,8 @@ local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 local EYE_ICON = assert(Lucide.GetAsset("eye", 16))
 local EYE_OFF_ICON = assert(Lucide.GetAsset("eye-off", 16))
 
+local TRASH_ICON = assert(Lucide.GetAsset("trash", 16))
+
 export type Props = {
 	Title: string,
 	IsVisible: boolean,
@@ -16,6 +18,7 @@ export type Props = {
 
 	OnSelected: (() -> ())?,
 	OnVisibilityToggled: (() -> ())?,
+	OnDelete: (() -> ())?,
 
 	LayoutOrder: number?,
 	ZIndex: number?,
@@ -79,7 +82,7 @@ local function Layer(props: Props)
 
 		Title = React.createElement("TextLabel", {
 			BackgroundTransparency = 1,
-			Size = UDim2.new(1, -48, 1, 0),
+			Size = UDim2.new(1, -52, 1, 0),
 			FontFace = Font.fromName("SourceSansPro"),
 			TextYAlignment = Enum.TextYAlignment.Center,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -96,6 +99,22 @@ local function Layer(props: Props)
 				PaddingLeft = UDim.new(0, 4),
 				PaddingRight = UDim.new(0, 4),
 			}),
+		}),
+
+		Delete = React.createElement(LucideIconButton, {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.fromScale(0, 0.5),
+			Size = UDim2.fromOffset(22, 22),
+			IconSize = UDim2.fromOffset(14, 14),
+			Icon = TRASH_ICON,
+			Disabled = props.Disabled,
+			LayoutOrder = 3,
+
+			OnActivated = function()
+				if props.OnDelete then
+					props.OnDelete()
+				end
+			end,
 		}),
 	})
 end

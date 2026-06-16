@@ -25,7 +25,6 @@ local SPARKLES_ICON = assert(Lucide.GetAsset("sparkles", 16))
 local PLUS_ICON = assert(Lucide.GetAsset("plus", 16))
 local UP_ICON = assert(Lucide.GetAsset("chevron-up", 16))
 local DOWN_ICON = assert(Lucide.GetAsset("chevron-down", 16))
-local TRASH_ICON = assert(Lucide.GetAsset("trash", 16))
 
 export type Props = {
 	AnchorPoint: Vector2?,
@@ -186,6 +185,15 @@ local function EffectsList(props: Props)
 				OnVisibilityToggled = function()
 					controller:toggleEffectVisibility(layer.id, item.id)
 				end,
+				OnDelete = function()
+					controller:removeEffect(layer.id, item.id)
+					setSelection(function(current: Selection?): Selection?
+						if current and current.layerId == layer.id and current.effectId == item.id then
+							return nil
+						end
+						return current
+					end)
+				end,
 			})
 		end
 
@@ -206,6 +214,15 @@ local function EffectsList(props: Props)
 			end,
 			OnExpandToggled = function()
 				controller:toggleLayerExpanded(layer.id)
+			end,
+			OnDelete = function()
+				controller:removeLayer(layer.id)
+				setSelection(function(current: Selection?): Selection?
+					if current and current.layerId == layer.id then
+						return nil
+					end
+					return current
+				end)
 			end,
 		}, effectNodes)
 	end
@@ -404,26 +421,6 @@ local function EffectsList(props: Props)
 						LayoutOrder = 5,
 						OnActivated = function()
 							moveSelected(1)
-						end,
-					}),
-
-					Delete = React.createElement(LucideIconButton, {
-						Size = UDim2.fromOffset(22, 22),
-						IconSize = UDim2.fromOffset(14, 14),
-						Icon = TRASH_ICON,
-						Disabled = props.Disabled or not hasSelection,
-						LayoutOrder = 6,
-						OnActivated = function()
-							if not selection then
-								return
-							end
-
-							if selection.effectId then
-								controller:removeEffect(selection.layerId, selection.effectId)
-							else
-								controller:removeLayer(selection.layerId)
-							end
-							setSelection(nil :: any)
 						end,
 					}),
 				}),
