@@ -39,77 +39,19 @@ export type Props = {
 	Disabled: boolean?,
 }
 
--- Selection is purely UI state: a layer is selected when effectId is nil, otherwise
--- the sub-effect within that layer is selected. The layer/effect data lives in the
--- Controller.
-type Selection = { layerId: string, effectId: string? }
+type Selection = {
+	layerId: string,
+	effectId: string?,
+}
 
 local function makeSelection(layerId: string, effectId: string?): Selection
-	return { layerId = layerId, effectId = effectId }
+	return {
+		layerId = layerId,
+		effectId = effectId,
+	}
 end
 
-local function EffectsList(props: Props)
-	local theme = StudioComponents.useTheme()
-	local controller = props.Controller
-
-	local layers = controller:useLayers()
-	local thumbnails = controller:useThumbnails()
-	local selection, setSelection = React.useState(nil :: Selection?)
-
-	-- The add-effect dialog targets a layer captured when it opens, so changing the
-	-- selection afterwards (it can't, while the overlay blocks input) won't matter.
-	local pendingLayerId, setPendingLayerId = React.useState(nil :: string?)
-	local isDialogOpen = pendingLayerId ~= nil
-
-	local openAddEffect = function()
-		local targetLayerId = if selection then selection.layerId elseif layers[#layers] then layers[#layers].id else nil
-		if targetLayerId then
-			setPendingLayerId(targetLayerId)
-		end
-	end
-
-	local confirmAddEffect = function(name: string, kind: string)
-		local targetLayerId = pendingLayerId
-		setPendingLayerId(nil :: any)
-		if not targetLayerId then
-			return
-		end
-
-		local effectId = controller:addEffect(targetLayerId, kind, name)
-		setSelection(makeSelection(targetLayerId, effectId))
-	end
-
-	local addLayer = function()
-		setSelection(makeSelection(controller:addLayer()))
-	end
-
-	local moveSelected = function(step: number)
-		if not selection then
-			return
-		end
-
-		if selection.effectId then
-			controller:moveEffect(selection.layerId, selection.effectId, step)
-		else
-			controller:moveLayer(selection.layerId, step)
-		end
-	end
-
-	local deleteSelected = function()
-		if not selection then
-			return
-		end
-
-		if selection.effectId then
-			controller:removeEffect(selection.layerId, selection.effectId)
-		else
-			controller:removeLayer(selection.layerId)
-		end
-		setSelection(nil :: any)
-	end
-
-	-- Resolve the current selection against the live state.
-
+local function resolveSelection(selection: Selection?, layers: { Controller.Layer })
 	local selectedLayer: Controller.Layer?
 	local selectedEffect: Controller.LayerEffect?
 	if selection then
@@ -128,8 +70,102 @@ local function EffectsList(props: Props)
 			end
 		end
 	end
+	return selectedLayer, selectedEffect
+end
 
-	-- ScrollTop tree
+local function LayerProperties(props: {
+	Controller: Controller.PostProcessingController,
+	SelectedLayer: Controller.Layer,
+	Disabled: boolean?,
+})
+	local controller = props.Controller
+	local selectedLayer = props.SelectedLayer
+	local layerId = selectedLayer.id
+
+	return React.createElement(React.Fragment, nil, {
+		Name = React.createElement(StudioProperties.String, {
+			FieldName = "Name",
+			Value = selectedLayer.name,
+			Disabled = props.Disabled,
+			LayoutOrder = 1,
+
+			OnValueSubmitted = function(newName)
+				controller:setLayerName(layerId, newName)
+			end,
+		}),
+
+		ShowBaseImage = React.createElement(StudioProperties.Boolean, {
+			FieldName = "Visible",
+			Value = selectedLayer.showBaseImage,
+			Disabled = props.Disabled,
+			LayoutOrder = 2,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerShowBaseImage(layerId, newValue)
+			end,
+		}),
+
+		Offset = React.createElement(StudioProperties.Vector2, {
+			FieldName = "Offset",
+			Value = selectedLayer.offset,
+			Disabled = props.Disabled,
+			LayoutOrder = 3,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerOffset(layerId, newValue)
+			end,
+		}),
+
+		Transparency = React.createElement(StudioProperties.Number, {
+			FieldName = "Transparency",
+			Min = 0,
+			Max = 1,
+			Value = selectedLayer.transparency,
+			Disabled = props.Disabled,
+			LayoutOrder = 4,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerTransparency(layerId, newValue)
+			end,
+		}),
+
+		Color = React.createElement(StudioProperties.Color3, {
+			FieldName = "Tint Color",
+			Value = selectedLayer.tintColor,
+			Disabled = props.Disabled,
+			LayoutOrder = 5,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerTint(layerId, newValue)
+			end,
+		}),
+	})
+end
+
+local function EffectsList(props: Props)
+	local theme = StudioComponents.useTheme()
+	local controller = props.Controller
+
+	local layers = controller:useLayers()
+	local thumbnails = controller:useThumbnails()
+	local selection, setSelection = React.useState(nil :: Selection?)
+	local pendingLayerId, setPendingLayerId = React.useState(nil :: string?)
+
+	local hasSelection = selection ~= nil
+	local isDialogOpen = pendingLayerId ~= nil
+	local selectedLayer, selectedEffect = resolveSelection(selection, layers)
+
+	local function moveSelected(step: number)
+		if not selection then
+			return
+		end
+
+		if selection.effectId then
+			controller:moveEffect(selection.layerId, selection.effectId, step)
+		else
+			controller:moveLayer(selection.layerId, step)
+		end
+	end
 
 	local layerNodes: { [string]: React.ReactNode } = {}
 	for layerOrder, layer in layers do
@@ -176,24 +212,24 @@ local function EffectsList(props: Props)
 
 	-- ScrollBottom properties
 
-	local propertyNodes: { [string]: React.ReactNode } = {}
+	local propertyFragment: React.ReactNode
 	if selectedEffect and selection then
 		local component = Effects.getReactComponentByKind(selectedEffect.effect.kind)
 		local layerId, effectId = selection.layerId, selection.effectId :: string
 
-		propertyNodes.Name = React.createElement(StudioProperties.String, {
-			FieldName = "Name",
-			Value = selectedEffect.effect.name,
-			Disabled = props.Disabled,
-			LayoutOrder = 1,
+		propertyFragment = React.createElement(React.Fragment, nil, {
+			Name = React.createElement(StudioProperties.String, {
+				FieldName = "Name",
+				Value = selectedEffect.effect.name,
+				Disabled = props.Disabled,
+				LayoutOrder = 1,
 
-			OnValueSubmitted = function(newName)
-				controller:setEffectName(layerId, effectId, newName)
-			end,
-		})
+				OnValueSubmitted = function(newName)
+					controller:setEffectName(layerId, effectId, newName)
+				end,
+			}),
 
-		propertyNodes.Body = component
-			and React.createElement("Frame", {
+			Body = component and React.createElement("Frame", {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -206,79 +242,16 @@ local function EffectsList(props: Props)
 						controller:updateEffect(layerId, effectId, transform)
 					end,
 				}),
-			})
+			}),
+		})
 	elseif selectedLayer then
-		local layerId = selectedLayer.id
-
-		propertyNodes.Name = React.createElement(StudioProperties.String, {
-			FieldName = "Name",
-			Value = selectedLayer.name,
+		propertyFragment = React.createElement(LayerProperties, {
+			Controller = props.Controller,
+			SelectedLayer = selectedLayer,
 			Disabled = props.Disabled,
-			LayoutOrder = 1,
-
-			OnValueSubmitted = function(newName)
-				controller:setLayerName(layerId, newName)
-			end,
-		})
-
-		propertyNodes.Visible = React.createElement(StudioProperties.Boolean, {
-			FieldName = "Visible",
-			Value = selectedLayer.isVisible,
-			Disabled = props.Disabled,
-			LayoutOrder = 2,
-
-			OnValueSubmitted = function()
-				controller:toggleLayerVisibility(layerId)
-			end,
-		})
-
-		propertyNodes.ShowBaseImage = React.createElement(StudioProperties.Boolean, {
-			FieldName = "Show Base Image",
-			Value = selectedLayer.showBaseImage,
-			Disabled = props.Disabled,
-			LayoutOrder = 3,
-
-			OnValueSubmitted = function(newValue)
-				controller:setLayerShowBaseImage(layerId, newValue)
-			end,
-		})
-
-		propertyNodes.Offset = React.createElement(StudioProperties.Vector2, {
-			FieldName = "Offset",
-			Value = selectedLayer.offset,
-			Disabled = props.Disabled,
-			LayoutOrder = 4,
-
-			OnValueSubmitted = function(newValue)
-				controller:setLayerOffset(layerId, newValue)
-			end,
-		})
-
-		propertyNodes.Transparency = React.createElement(StudioProperties.Number, {
-			FieldName = "Transparency",
-			Min = 0,
-			Max = 1,
-			Value = selectedLayer.transparency,
-			Disabled = props.Disabled,
-			LayoutOrder = 5,
-
-			OnValueSubmitted = function(newValue)
-				controller:setLayerTransparency(layerId, newValue)
-			end,
-		})
-
-		propertyNodes.Color = React.createElement(StudioProperties.Color3, {
-			FieldName = "Tint Color",
-			Value = selectedLayer.tintColor,
-			Disabled = props.Disabled,
-			LayoutOrder = 6,
-
-			OnValueSubmitted = function(newValue)
-				controller:setLayerTint(layerId, newValue)
-			end,
 		})
 	else
-		propertyNodes.Empty = React.createElement("TextLabel", {
+		propertyFragment = React.createElement("TextLabel", {
 			BackgroundTransparency = 1,
 			Size = UDim2.new(1, 0, 0, 48),
 			FontFace = Font.fromName("SourceSansPro"),
@@ -293,31 +266,6 @@ local function EffectsList(props: Props)
 				PaddingLeft = UDim.new(0, 8),
 				PaddingRight = UDim.new(0, 8),
 			}),
-		})
-	end
-
-	local hasSelection = selection ~= nil
-
-	local function toolbarButton(icon, layoutOrder: number, disabled: boolean?, onActivated: () -> ())
-		return React.createElement(LucideIconButton, {
-			Size = UDim2.fromOffset(22, 22),
-			IconSize = UDim2.fromOffset(14, 14),
-			Icon = icon,
-			Disabled = disabled,
-			LayoutOrder = layoutOrder,
-			OnActivated = onActivated,
-		})
-	end
-
-	-- The "add" actions get text labels so it's clear which creates a layer vs an
-	-- effect; the directional move/delete actions stay as compact icons.
-	local function addButton(text: string, icon, layoutOrder: number, disabled: boolean?, onActivated: () -> ())
-		return React.createElement(UnderlineIconButton, {
-			Text = text,
-			Icon = icon,
-			Disabled = disabled,
-			LayoutOrder = layoutOrder,
-			OnActivated = onActivated,
 		})
 	end
 
@@ -396,14 +344,29 @@ local function EffectsList(props: Props)
 						Padding = UDim.new(0, 12),
 					}),
 
-					AddLayer = addButton("Add Layer", PLUS_ICON, 1, props.Disabled, addLayer),
-					AddEffect = addButton(
-						"Add Effect",
-						SPARKLES_ICON,
-						2,
-						props.Disabled or #layers == 0,
-						openAddEffect
-					),
+					AddLayer = React.createElement(UnderlineIconButton, {
+						Text = "Add Layer",
+						Icon = PLUS_ICON,
+						Disabled = props.Disabled,
+						LayoutOrder = 1,
+						OnActivated = function()
+							setSelection(makeSelection(controller:addLayer()))
+						end,
+					}),
+
+					AddEffect = React.createElement(UnderlineIconButton, {
+						Text = "Add Effect",
+						Icon = SPARKLES_ICON,
+						Disabled = props.Disabled or not selectedLayer,
+						LayoutOrder = 2,
+						OnActivated = function()
+							if selection then
+								setPendingLayerId(selection.layerId)
+							elseif layers[#layers] then
+								setPendingLayerId(layers[#layers].id)
+							end
+						end,
+					}),
 				}),
 
 				Right = React.createElement("Frame", {
@@ -423,13 +386,46 @@ local function EffectsList(props: Props)
 						Padding = UDim.new(0, 2),
 					}),
 
-					MoveUp = toolbarButton(UP_ICON, 4, props.Disabled or not hasSelection, function()
-						moveSelected(-1)
-					end),
-					MoveDown = toolbarButton(DOWN_ICON, 5, props.Disabled or not hasSelection, function()
-						moveSelected(1)
-					end),
-					Delete = toolbarButton(TRASH_ICON, 6, props.Disabled or not hasSelection, deleteSelected),
+					MoveUp = React.createElement(LucideIconButton, {
+						Size = UDim2.fromOffset(22, 22),
+						IconSize = UDim2.fromOffset(14, 14),
+						Icon = UP_ICON,
+						Disabled = props.Disabled or not hasSelection,
+						LayoutOrder = 4,
+						OnActivated = function()
+							moveSelected(-1)
+						end,
+					}),
+					MoveDown = React.createElement(LucideIconButton, {
+						Size = UDim2.fromOffset(22, 22),
+						IconSize = UDim2.fromOffset(14, 14),
+						Icon = DOWN_ICON,
+						Disabled = props.Disabled or not hasSelection,
+						LayoutOrder = 5,
+						OnActivated = function()
+							moveSelected(1)
+						end,
+					}),
+
+					Delete = React.createElement(LucideIconButton, {
+						Size = UDim2.fromOffset(22, 22),
+						IconSize = UDim2.fromOffset(14, 14),
+						Icon = TRASH_ICON,
+						Disabled = props.Disabled or not hasSelection,
+						LayoutOrder = 6,
+						OnActivated = function()
+							if not selection then
+								return
+							end
+
+							if selection.effectId then
+								controller:removeEffect(selection.layerId, selection.effectId)
+							else
+								controller:removeLayer(selection.layerId)
+							end
+							setSelection(nil :: any)
+						end,
+					}),
 				}),
 			}),
 
@@ -458,7 +454,9 @@ local function EffectsList(props: Props)
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 0),
 					}),
-				}, propertyNodes),
+
+					Properties = propertyFragment,
+				}),
 
 				Padding = React.createElement("Frame", {
 					BackgroundTransparency = 1,
@@ -484,7 +482,14 @@ local function EffectsList(props: Props)
 				Controller = props.Controller,
 
 				OnConfirm = function(name, kind)
-					confirmAddEffect(name, kind)
+					local targetLayerId = pendingLayerId
+					setPendingLayerId(nil :: any)
+					if not targetLayerId then
+						return
+					end
+
+					local effectId = controller:addEffect(targetLayerId, kind, name)
+					setSelection(makeSelection(targetLayerId, effectId))
 				end,
 
 				OnCancel = function()
