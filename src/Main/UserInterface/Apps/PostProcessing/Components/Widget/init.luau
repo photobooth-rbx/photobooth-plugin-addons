@@ -279,7 +279,7 @@ local function Widget(props: Props)
 							return getImageButtonColor(theme, modifier)
 						end,
 						OnActivated = function()
-							selected.setIndex((((selected.index - 1) - 1) % selected.count) + 1)
+							selected.setIndex(math.max(0, (((selected.index - 1) - 1) % selected.count) + 1))
 						end,
 					}),
 
@@ -309,7 +309,7 @@ local function Widget(props: Props)
 							return getImageButtonColor(theme, modifier)
 						end,
 						OnActivated = function()
-							selected.setIndex((((selected.index + 1) - 1) % selected.count) + 1)
+							selected.setIndex(math.max(0, (((selected.index + 1) - 1) % selected.count) + 1))
 						end,
 					}),
 				}),
