@@ -46,6 +46,13 @@ export type Layer = {
 	effects: { LayerEffect },
 }
 
+-- A saved snapshot of a whole layer stack.
+export type Preset = {
+	id: string,
+	name: string,
+	layers: { Layer },
+}
+
 -- Helpers
 
 local idCounter = 0
@@ -99,6 +106,32 @@ local function makeLayerEffect(kind: string, name: string): LayerEffect
 	}
 end
 
+-- Deep copies a layer stack with fresh ids, so snapshots and applied presets are
+-- fully independent of (and from) the live model.
+local function copyLayerEffect(item: LayerEffect): LayerEffect
+	local effect = table.clone(item.effect)
+	effect.properties = table.clone(item.effect.properties)
+	return {
+		id = nextId(),
+		isVisible = item.isVisible,
+		effect = effect,
+	}
+end
+
+local function copyLayers(layers: { Layer }): { Layer }
+	local out: { Layer } = {}
+	for _, layer in layers do
+		local clone = table.clone(layer)
+		clone.id = nextId()
+		clone.effects = {}
+		for _, item in layer.effects do
+			table.insert(clone.effects, copyLayerEffect(item))
+		end
+		table.insert(out, clone)
+	end
+	return out
+end
+
 -- Returns a new layers array with `fn` applied to the layer matching `layerId`.
 local function mapLayer(layers: { Layer }, layerId: string, fn: (Layer) -> Layer): { Layer }
 	local out = table.clone(layers)
@@ -146,6 +179,7 @@ export type PostProcessingController = typeof(setmetatable(
 		observableThumbnails: ObservableValue.ObservableValue<{ [string]: EditableImage }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 		observableComposited: ObservableValue.ObservableValue<{ RenderLayer }>,
+		observablePresets: ObservableValue.ObservableValue<{ Preset }>,
 	},
 	PostProcessingControllerClass
 ))
@@ -159,6 +193,7 @@ function PostProcessingControllerStatic.new()
 	self.observableThumbnails = ObservableValue.new({} :: { [string]: EditableImage })
 	self.observableLayers = ObservableValue.new({ makeLayer("Image") })
 	self.observableComposited = ObservableValue.new({})
+	self.observablePresets = ObservableValue.new({} :: { Preset })
 
 	return self
 end
@@ -398,6 +433,51 @@ function PostProcessingControllerClass.updateEffect(
 			return clone
 		end)
 	end)
+end
+
+-- Presets
+
+function PostProcessingControllerClass.usePresets(self: PostProcessingController)
+	return self.observablePresets:use()
+end
+
+-- Snapshots the current layer stack into a new preset.
+function PostProcessingControllerClass.addPreset(self: PostProcessingController, name: string?): string
+	local preset: Preset = {
+		id = nextId(),
+		name = name or `Preset {#self.observablePresets:get() + 1}`,
+		layers = copyLayers(self.observableLayers:get()),
+	}
+	self.observablePresets:update()(function(presets)
+		local out = table.clone(presets)
+		table.insert(out, preset)
+		return out
+	end)
+	return preset.id
+end
+
+function PostProcessingControllerClass.removePreset(self: PostProcessingController, presetId: string)
+	self.observablePresets:update()(function(presets)
+		local out = table.clone(presets)
+		local i = indexOf(out, function(preset)
+			return preset.id == presetId
+		end)
+		if i then
+			table.remove(out, i)
+		end
+		return out
+	end)
+end
+
+-- Replaces the current layer stack with a fresh copy of the preset's snapshot.
+function PostProcessingControllerClass.applyPreset(self: PostProcessingController, presetId: string)
+	local presets = self.observablePresets:get()
+	local i = indexOf(presets, function(preset)
+		return preset.id == presetId
+	end)
+	if i then
+		self.observableLayers:set(copyLayers(presets[i].layers))
+	end
 end
 
 -- Rendering
@@ -680,6 +760,7 @@ function PostProcessingControllerClass.Destroy(self: PostProcessingController)
 	self.observableThumbnails:Destroy()
 	self.observableLayers:Destroy()
 	self.observableComposited:Destroy()
+	self.observablePresets:Destroy()
 end
 
 --

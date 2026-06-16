@@ -150,10 +150,6 @@ local function Widget(props: Props)
 								Size = UDim2.fromScale(1, 1),
 								Controller = controller,
 								Disabled = disabled,
-
-								OnButtonActivated = function()
-									print("?")
-								end,
 							}),
 						},
 					}),
