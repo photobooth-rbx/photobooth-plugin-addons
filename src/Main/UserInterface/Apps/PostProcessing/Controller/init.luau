@@ -794,12 +794,16 @@ function PostProcessingControllerClass.useThumbnails(self: PostProcessingControl
 end
 
 function PostProcessingControllerClass.composeImageAsync(self: PostProcessingController, editImage: EditableImage)
+	local wasLoaded = self.editImage == editImage
+
 	self:loadImageAsync(editImage)
 
 	local composited = self.observableComposited:get()
 	local composedEdit = LayerComposer.composeAsync(editImage, composited)
 
-	self:unloadImage()
+	if not wasLoaded then
+		self:unloadImage()
+	end
 
 	return composedEdit
 end
