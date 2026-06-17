@@ -527,24 +527,29 @@ function AutoCaptureControllerClass._watchIsSynced(self: AutoCaptureController)
 		if isSynced ~= newIsSynced then
 			isSynced = newIsSynced
 
+			local dynamicStateNow = self.dynamicObservableState:get()
 			if isSynced then
-				modelState.focus.dynamicState = table.clone(self.dynamicObservableState:get())
 				self.focusShared = table.clone(modelState.focus)
-				self.focusShared.dynamicState = table.clone(modelState.focus.dynamicState)
+				self.focusShared.dynamicState = table.clone(dynamicStateNow)
 			else
-				modelState.focus = table.clone(self.focusShared)
-				modelState.focus.dynamicState = table.clone(self.focusShared.dynamicState)
+				for _, otherModelState in self.stateByModel do
+					otherModelState.focus = table.clone(self.focusShared)
+					otherModelState.focus.dynamicState = table.clone(dynamicStateNow)
+				end
 			end
-
-			self.dynamicObservableState:set(table.clone(modelState.focus.dynamicState))
 		end
 	end))
 
 	cleanupTrove:Add(function()
+		local dynamicStateNow = self.dynamicObservableState:get()
 		if isSynced then
-			self.focusShared.dynamicState = table.clone(self.dynamicObservableState:get())
+			self.focusShared.dynamicState = table.clone(dynamicStateNow)
+			for _, otherModelState in self.stateByModel do
+				otherModelState.focus.dynamicState = table.clone(dynamicStateNow)
+			end
+		else
+			modelState.focus.dynamicState = table.clone(dynamicStateNow)
 		end
-		modelState.focus.dynamicState = table.clone(self.dynamicObservableState:get())
 	end)
 
 	return function()
