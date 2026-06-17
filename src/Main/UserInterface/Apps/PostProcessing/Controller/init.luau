@@ -10,6 +10,7 @@ local Effects = require(postProcessingRoot.Effects)
 
 local LayerComposer = require(script.LayerComposer)
 local SignedVectorField = require(script.SignedVectorField)
+local IntegralImage = require(script.IntegralImage)
 
 -- Types
 
@@ -518,6 +519,23 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			svfEdit:Destroy()
 		end)
 
+		-- The shared summed-area table of the source alpha, built once here (like the
+		-- signed vector field) and read by the shadow effects for O(1) box blurs.
+		local integralProcess = IntegralImage.generate(Content.fromObject(editImage))
+		self.imageTrove:Add(function()
+			integralProcess:cancel()
+		end)
+
+		local unpackIntegralEdit = integralProcess:expect()
+		if not unpackIntegralEdit then
+			return
+		end
+
+		local integralEdit = unpackIntegralEdit()
+		self.imageTrove:Add(function()
+			integralEdit:Destroy()
+		end)
+
 		-- The shared, unmodified base image; each visible layer references it and the
 		-- compose step applies that layer's offset/tint/transparency.
 		local baseEdit = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
@@ -595,7 +613,10 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					else
 						local output = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
 						local effectEntry = Effects.getByKind(effect.kind)
-						effectEntry.render({ img = editImage, svf = svfEdit, output = output }, effect.properties)
+						effectEntry.render(
+								{ img = editImage, svf = svfEdit, integral = integralEdit, output = output },
+								effect.properties
+							)
 
 						if not alive then
 							output:Destroy()

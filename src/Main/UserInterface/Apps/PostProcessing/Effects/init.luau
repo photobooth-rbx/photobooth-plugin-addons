@@ -24,7 +24,6 @@ local function loadEffects(names: { string })
 end
 
 loadEffects({
-	"BaseImage",
 	"Stroke",
 	"DropShadow",
 	"InnerShadow",

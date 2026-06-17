@@ -32,6 +32,45 @@ function EffectsHelper.readSignedDistance(svf: buffer, width: number, x: number,
 	return signedDistance
 end
 
+-- Reads a packed-u32 summed-area table value at (x, y): the total alpha of the
+-- rectangle from (1, 1) to (x, y). Coordinates are clamped to the image bounds, and
+-- anything left of / above the first pixel reads as 0, mirroring IntegralImage:read.
+function EffectsHelper.readIntegral(integral: buffer, width: number, height: number, x: number, y: number): number
+	local cx = math.min(x, width)
+	local cy = math.min(y, height)
+	if cx > 0 and cy > 0 then
+		return buffer.readu32(integral, ((cx - 1) + (cy - 1) * width) * 4)
+	end
+	return 0
+end
+
+-- Average alpha in [0, 1] over the (2r+1)^2 box centred on (x, y), via the summed-area
+-- table. Normalised by the number of in-bounds pixels so edges don't darken.
+function EffectsHelper.boxAverageAlpha(
+	integral: buffer,
+	width: number,
+	height: number,
+	x: number,
+	y: number,
+	radius: number
+): number
+	local minX, minY = x - radius, y - radius
+	local maxX, maxY = x + radius, y + radius
+
+	local sum = EffectsHelper.readIntegral(integral, width, height, maxX, maxY)
+		- EffectsHelper.readIntegral(integral, width, height, minX - 1, maxY)
+		- EffectsHelper.readIntegral(integral, width, height, maxX, minY - 1)
+		+ EffectsHelper.readIntegral(integral, width, height, minX - 1, minY - 1)
+
+	local cMinX = math.clamp(minX, 1, width)
+	local cMaxX = math.clamp(maxX, 1, width)
+	local cMinY = math.clamp(minY, 1, height)
+	local cMaxY = math.clamp(maxY, 1, height)
+	local count = (cMaxX - cMinX + 1) * (cMaxY - cMinY + 1)
+
+	return sum / (count * 255)
+end
+
 function EffectsHelper.sliceIntoStrips(region: Rect, nSlices: number)
 	local width = region.Max.X - region.Min.X
 	local height = region.Max.Y - region.Min.Y

@@ -3,6 +3,7 @@ local EffectsRegistry = {}
 export type ImageInputs = {
 	img: EditableImage,
 	svf: EditableImage,
+	integral: EditableImage,
 	output: EditableImage,
 }
 

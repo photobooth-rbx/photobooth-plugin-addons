@@ -1,6 +1,7 @@
 local AssetService = game:GetService("AssetService")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
+local Cancellation = require(pluginRoot.Utilities.Cancellation)
 
 type HorizontalWorker = typeof(require(script.HorizontalWorker))
 
@@ -65,18 +66,35 @@ local function sliceIntoStrips(size: Vector2, xSlices: number, ySlices: number)
 	return strips
 end
 
-function IntegralImageStatic.fromEditImage(editImage: EditableImage)
-	local size = editImage.Size
+-- Runs the horizontal then vertical prefix-sum passes over `source`'s alpha channel,
+-- leaving the packed-u32 summed-area table in `integralEdit`. When a cancel token is
+-- given, in-flight scheduler work is cancelled on cancellation; returns false if
+-- either pass was cancelled before completing.
+local function computeInto(
+	source: EditableImage,
+	integralEdit: EditableImage,
+	token: Cancellation.CancelToken?
+): boolean
+	local size = source.Size
 	local width, height = size.X, size.Y
 
 	horizontalScheduler:waitForReady()
+	local unhookHorizontal = token and token:onCancel(function()
+		horizontalScheduler:cancelWork()
+	end)
 
 	local horizontalStrips = sliceIntoStrips(size, 1, horizontalScheduler:getActorCount())
 	for _, strip in horizontalStrips do
-		horizontalScheduler:schedule(editImage, 3, strip)
+		horizontalScheduler:schedule(source, 3, strip)
 	end
 
-	local results = horizontalScheduler:workAsync()
+	local results, horizontalCancelled = horizontalScheduler:workAsync()
+	if unhookHorizontal then
+		unhookHorizontal()
+	end
+	if horizontalCancelled then
+		return false
+	end
 
 	local offset = 0
 	local stitched = buffer.create(width * height * 4)
@@ -85,23 +103,70 @@ function IntegralImageStatic.fromEditImage(editImage: EditableImage)
 		buffer.copy(stitched, offset, b)
 		offset = offset + buffer.len(b)
 	end
-
-	local hImg = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
-	hImg:WritePixelsBuffer(Vector2.zero, size, stitched)
+	integralEdit:WritePixelsBuffer(Vector2.zero, size, stitched)
 
 	verticalScheduler:waitForReady()
+	local unhookVertical = token and token:onCancel(function()
+		verticalScheduler:cancelWork()
+	end)
 
 	local verticalStrips = sliceIntoStrips(size, verticalScheduler:getActorCount(), 1)
 	for _, strip in verticalStrips do
-		verticalScheduler:schedule(hImg, strip)
+		verticalScheduler:schedule(integralEdit, strip)
 	end
 
-	verticalScheduler:workAsync()
+	local _, verticalCancelled = verticalScheduler:workAsync()
+	if unhookVertical then
+		unhookVertical()
+	end
+	if verticalCancelled then
+		return false
+	end
 
-	local integralBuffer = hImg:ReadPixelsBuffer(Vector2.zero, size)
-	hImg:Destroy()
+	return true
+end
 
-	return IntegralImageStatic.fromRaw(integralBuffer, width, height)
+function IntegralImageStatic.fromEditImage(editImage: EditableImage)
+	local size = editImage.Size
+
+	local integralEdit = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
+	computeInto(editImage, integralEdit)
+
+	local integralBuffer = integralEdit:ReadPixelsBuffer(Vector2.zero, size)
+	integralEdit:Destroy()
+
+	return IntegralImageStatic.fromRaw(integralBuffer, size.X, size.Y)
+end
+
+-- Generates the summed-area table as an EditableImage (packed u32 per pixel), kept
+-- alive for the source image's lifetime and read by effects much like the signed
+-- vector field. Wrapped in a Cancellation so a mid-build image swap tears down cleanly.
+function IntegralImageStatic.generate(content: Content)
+	return Cancellation.new(function(token)
+		local sourceEdit = AssetService:CreateEditableImageAsync(content)
+		local unhookSource = token:onCancel(function()
+			sourceEdit:Destroy()
+		end)
+
+		local integralEdit = AssetService:CreateEditableImageAsync(content)
+		local unhookIntegral = token:onCancel(function()
+			integralEdit:Destroy()
+		end)
+
+		local success, err: string? = pcall(function()
+			computeInto(sourceEdit, integralEdit, token)
+		end)
+
+		unhookSource()
+		sourceEdit:Destroy()
+
+		if not success and err and not token:isCancelled() then
+			error(err, 0)
+		end
+
+		unhookIntegral()
+		return integralEdit
+	end)
 end
 
 function IntegralImageClass.read(self: IntegralImage, x: number, y: number)
