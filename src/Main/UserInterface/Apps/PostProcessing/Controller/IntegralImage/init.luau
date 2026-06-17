@@ -4,80 +4,24 @@ local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
 local Cancellation = require(pluginRoot.Utilities.Cancellation)
 
+local IntegralImage = {}
+
+-- Private
+
 type HorizontalWorker = typeof(require(script.HorizontalWorker))
+type VerticalWorker = typeof(require(script.VerticalWorker))
 
 local horizontalScheduler = Parallel.new(32, {
 	script = script.HorizontalWorker,
 	typecast = (nil :: any) :: HorizontalWorker,
 })
 
-type VerticalWorker = typeof(require(script.VerticalWorker))
-
 local verticalScheduler = Parallel.new(32, {
 	script = script.VerticalWorker,
 	typecast = (nil :: any) :: VerticalWorker,
 })
 
-local IntegralImageStatic = {}
-local IntegralImagePrivate = {}
-
-local IntegralImageClass = {}
-IntegralImageClass.__index = IntegralImageClass
-IntegralImageClass.ClassName = "IntegralImage"
-
-export type IntegralImage = typeof(setmetatable(
-	{} :: {
-		buffer: buffer,
-		width: number,
-		height: number,
-	},
-	IntegralImageClass
-))
-
-function IntegralImageStatic.generate(content: Content)
-	return Cancellation.new(function(token)
-		local sourceEdit = AssetService:CreateEditableImageAsync(content)
-		local unhookSource = token:onCancel(function()
-			sourceEdit:Destroy()
-		end)
-
-		local integralEdit = AssetService:CreateEditableImageAsync(content)
-		local unhookIntegral = token:onCancel(function()
-			integralEdit:Destroy()
-		end)
-
-		local success, err: string? = pcall(function()
-			IntegralImagePrivate.computeInto(sourceEdit, integralEdit, token)
-		end)
-
-		unhookSource()
-		sourceEdit:Destroy()
-
-		if not success and err and not token:isCancelled() then
-			error(err, 0)
-		end
-
-		unhookIntegral()
-		return integralEdit
-	end)
-end
-
-function IntegralImageStatic.fromEditImage(integralEdit: EditableImage)
-	local self = setmetatable({}, IntegralImageClass) :: IntegralImage
-
-	local size = integralEdit.Size
-	local integralBuffer = integralEdit:ReadPixelsBuffer(Vector2.zero, size)
-
-	self.buffer = integralBuffer
-	self.width = size.X
-	self.height = size.Y
-
-	return self
-end
-
--- Private
-
-function IntegralImagePrivate.sliceIntoStrips(size: Vector2, xSlices: number, ySlices: number)
+local function sliceIntoStrips(size: Vector2, xSlices: number, ySlices: number)
 	local strips = {}
 	local width, height = size.X, size.Y
 
@@ -101,11 +45,7 @@ function IntegralImagePrivate.sliceIntoStrips(size: Vector2, xSlices: number, yS
 	return strips
 end
 
-function IntegralImagePrivate.computeInto(
-	source: EditableImage,
-	integralEdit: EditableImage,
-	token: Cancellation.CancelToken?
-)
+local function computeInto(source: EditableImage, integralEdit: EditableImage, token: Cancellation.CancelToken?)
 	local size = source.Size
 	local width, height = size.X, size.Y
 
@@ -114,7 +54,7 @@ function IntegralImagePrivate.computeInto(
 		horizontalScheduler:cancelWork()
 	end)
 
-	local horizontalStrips = IntegralImagePrivate.sliceIntoStrips(size, 1, horizontalScheduler:getActorCount())
+	local horizontalStrips = sliceIntoStrips(size, 1, horizontalScheduler:getActorCount())
 	for _, strip in horizontalStrips do
 		horizontalScheduler:schedule(source, 3, strip)
 	end
@@ -141,7 +81,7 @@ function IntegralImagePrivate.computeInto(
 		verticalScheduler:cancelWork()
 	end)
 
-	local verticalStrips = IntegralImagePrivate.sliceIntoStrips(size, verticalScheduler:getActorCount(), 1)
+	local verticalStrips = sliceIntoStrips(size, verticalScheduler:getActorCount(), 1)
 	for _, strip in verticalStrips do
 		verticalScheduler:schedule(integralEdit, strip)
 	end
@@ -157,40 +97,38 @@ function IntegralImagePrivate.computeInto(
 	return true
 end
 
--- Methods
+-- Public
 
-function IntegralImageClass.read(self: IntegralImage, x: number, y: number)
-	local cx = math.min(x, self.width)
-	local cy = math.min(y, self.height)
-	if cx > 0 and cy > 0 then
-		local i = ((cx - 1) + (cy - 1) * self.width) * 4
-		return buffer.readu32(self.buffer, i)
-	end
-	return 0
+function IntegralImage.generate(content: Content)
+	return Cancellation.new(function(token)
+		local sourceEdit = AssetService:CreateEditableImageAsync(content)
+		local unhookSource = token:onCancel(function()
+			sourceEdit:Destroy()
+		end)
+
+		local integralEdit = AssetService:CreateEditableImageAsync(content)
+		local unhookIntegral = token:onCancel(function()
+			integralEdit:Destroy()
+		end)
+
+		local success, err: string? = pcall(function()
+			computeInto(sourceEdit, integralEdit, token)
+		end)
+
+		unhookSource()
+		sourceEdit:Destroy()
+
+		if not success and err and not token:isCancelled() then
+			error(err, 0)
+		end
+
+		unhookIntegral()
+		return integralEdit
+	end)
 end
 
-function IntegralImageClass.readArea(self: IntegralImage, minX: number, minY: number, maxX: number, maxY: number)
-	-- stylua: ignore
-	return self:read(maxX, maxY) 
-		- self:read(minX - 1, maxY) 
-		- self:read(maxX, minY - 1) 
-		+ self:read(minX - 1, minY - 1)
-end
-
-function IntegralImageClass.readRadius(self: IntegralImage, x: number, y: number, radius: number)
-	return self:readArea(x - radius, y - radius, x + radius, y + radius)
-end
-
-function IntegralImageClass.getNPixelsInRadius(self: IntegralImage, x: number, y: number, radius: number)
-	local minX = math.clamp(x - radius, 1, self.width)
-	local maxX = math.clamp(x + radius, 1, self.width)
-	local minY = math.clamp(y - radius, 1, self.height)
-	local maxY = math.clamp(y + radius, 1, self.height)
-	return (maxX - minX + 1) * (maxY - minY + 1)
-end
-
-function IntegralImageClass.Destroy(_self: IntegralImage) end
+-- Private
 
 --
 
-return IntegralImageStatic
+return IntegralImage
