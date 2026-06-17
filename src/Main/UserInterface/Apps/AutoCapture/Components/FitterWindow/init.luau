@@ -21,7 +21,6 @@ export type Props = {
 	AnimationTrack: AnimationTrack?,
 
 	OnCaptureRectChanged: (Rect) -> (),
-	OnPaddedRectChanged: (Rect) -> (),
 
 	Disabled: boolean?,
 }
@@ -37,15 +36,6 @@ local function Fitter(props: Props)
 	React.useEffect(function()
 		props.OnCaptureRectChanged(captureRect)
 	end, { captureRect })
-
-	local paddedFrameRef = React.useRef(nil)
-	local paddedFrameAbsPosition = Hooks.useRefProperty(paddedFrameRef, "AbsolutePosition", Vector2.zero)
-	local paddedFrameAbsSize = Hooks.useRefProperty(paddedFrameRef, "AbsoluteSize", Vector2.zero)
-	local paddedRect = Rect.new(paddedFrameAbsPosition, paddedFrameAbsPosition + paddedFrameAbsSize)
-
-	React.useEffect(function()
-		props.OnPaddedRectChanged(paddedRect)
-	end, { paddedRect })
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -120,18 +110,6 @@ local function Fitter(props: Props)
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
 				ref = captureFrameRef,
-			}),
-
-			PaddedFrame = React.createElement("Frame", {
-				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(props.PaddingLeft, props.PaddingTop),
-				Size = UDim2.new(
-					1,
-					-(props.PaddingLeft + props.PaddingRight),
-					1,
-					-(props.PaddingTop + props.PaddingBottom)
-				),
-				ref = paddedFrameRef,
 			}),
 
 			AnimationBar = React.createElement(PlaybackBar, {

@@ -102,7 +102,6 @@ type ModelState = {
 export type AutoCaptureController = typeof(setmetatable(
 	{} :: {
 		captureRect: Rect,
-		paddedRect: Rect,
 
 		staticObservableState: StaticObservableState,
 		dynamicObservableState: DynamicObservableState,
@@ -124,7 +123,6 @@ function AutoCaptureControllerStatic.new()
 	local self = setmetatable({}, AutoCaptureControllerClass) :: AutoCaptureController
 
 	self.captureRect = Rect.new(0, 0, 0, 0)
-	self.paddedRect = Rect.new(0, 0, 0, 0)
 
 	self.staticObservableState = createStaticObservableState()
 	self.dynamicObservableState = createDynamicObservableState()
@@ -203,6 +201,20 @@ function AutoCaptureControllerClass._getActiveFocus(self: AutoCaptureController)
 		return modelState.focus
 	end
 	return self.focusShared
+end
+
+function AutoCaptureControllerClass._getPaddedRect(self: AutoCaptureController)
+	local dynamic = self.dynamicObservableState:get()
+
+	local top = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingTop
+	local bottom = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingBottom
+	local left = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingLeft
+	local right = if dynamic.paddingUniform then dynamic.padding else dynamic.paddingRight
+
+	local min = self.captureRect.Min + Vector2.new(left, top)
+	local max = self.captureRect.Max - Vector2.new(right, bottom)
+
+	return Rect.new(min, max)
 end
 
 function AutoCaptureControllerClass._listenOrbitInput(self: AutoCaptureController)
@@ -288,10 +300,11 @@ function AutoCaptureControllerClass._hookOrbital(self: AutoCaptureController)
 		local viewportSize = camera.ViewportSize
 		local rotation = CFrame.fromEulerAnglesYXZ(focus.pitch, focus.yaw, 0)
 
-		local rectCenter = self.paddedRect.Min + (self.paddedRect.Max - self.paddedRect.Min) / 2
+		local paddedRect = self:_getPaddedRect()
+		local rectCenter = paddedRect.Min + (paddedRect.Max - paddedRect.Min) / 2
 
-		local aspect = self.paddedRect.Width / self.paddedRect.Height
-		local scaleY = self.paddedRect.Height / viewportSize.Y
+		local aspect = paddedRect.Width / paddedRect.Height
+		local scaleY = paddedRect.Height / viewportSize.Y
 		local scaledFov2 = math.atan(math.tan(math.rad(camera.FieldOfView / 2)) * scaleY)
 		local sinFov2 = math.sin(scaledFov2 * math.min(1, aspect))
 
@@ -349,11 +362,12 @@ function AutoCaptureControllerClass._hookPointCloud(self: AutoCaptureController)
 		local rotation = CFrame.fromEulerAnglesYXZ(focus.pitch, focus.yaw, 0)
 		local rotationInv = rotation:Inverse()
 
-		local rectCenter = self.paddedRect.Min + (self.paddedRect.Max - self.paddedRect.Min) / 2
+		local paddedRect = self:_getPaddedRect()
+		local rectCenter = paddedRect.Min + (paddedRect.Max - paddedRect.Min) / 2
 
 		local tanYFov2 = math.tan(math.rad(camera.FieldOfView / 2))
-		local tanYFov2Scaled = tanYFov2 * (self.paddedRect.Height / viewportSize.Y)
-		local tanXFov2Scaled = tanYFov2 * (viewportSize.X / viewportSize.Y) * (self.paddedRect.Width / viewportSize.X)
+		local tanYFov2Scaled = tanYFov2 * (paddedRect.Height / viewportSize.Y)
+		local tanXFov2Scaled = tanYFov2 * (viewportSize.X / viewportSize.Y) * (paddedRect.Width / viewportSize.X)
 
 		local worldPointCloud = pointCloud:getVertices()
 		local cloud = { rotationInv * worldPointCloud[1] }
@@ -559,10 +573,6 @@ end
 
 function AutoCaptureControllerClass.setCaptureRect(self: AutoCaptureController, rect: Rect)
 	self.captureRect = rect
-end
-
-function AutoCaptureControllerClass.setPaddedRect(self: AutoCaptureController, rect: Rect)
-	self.paddedRect = rect
 end
 
 function AutoCaptureControllerClass.getFocusedModel(self: AutoCaptureController)

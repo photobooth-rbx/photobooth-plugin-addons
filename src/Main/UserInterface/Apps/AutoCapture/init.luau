@@ -216,10 +216,6 @@ local function appComponent(_props: {})
 						setCaptureRect(newRect)
 					end,
 
-					OnPaddedRectChanged = function(newRect)
-						controller:setPaddedRect(newRect)
-					end,
-
 					Disabled = disabled,
 				}),
 			}),

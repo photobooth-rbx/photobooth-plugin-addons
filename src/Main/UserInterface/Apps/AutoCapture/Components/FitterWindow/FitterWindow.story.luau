@@ -72,7 +72,6 @@ local function Component(props: { Size: UDim2 })
 			AnimationTrack = animationTrack,
 
 			OnCaptureRectChanged = function(_rect) end,
-			OnPaddedRectChanged = function(_rect) end,
 
 			Disabled = false,
 		}),
