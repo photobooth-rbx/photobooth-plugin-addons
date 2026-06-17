@@ -579,25 +579,16 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 				-- `layerRenderLayers` is just this layer, composited into its thumbnail; it
 				-- omits the layer's global offset so moving the layer doesn't push the
 				-- thumbnail off-canvas. The flat `composited` list (main preview) keeps it.
-				local layerRenderLayers: { RenderLayer } = {}
 				local signatureParts: { string } = { `L:{layer.tintColor}:{layer.transparency}:{layer.showBaseImage}` }
 
-				if layer.showBaseImage then
-					table.insert(composited, {
-						name = layer.name,
-						editImage = baseEdit,
-						offset = layer.offset,
-						tintColor = layer.tintColor,
-						transparency = layer.transparency,
-					})
-					table.insert(layerRenderLayers, {
-						name = layer.name,
-						editImage = baseEdit,
-						offset = Vector2.zero,
-						tintColor = layer.tintColor,
-						transparency = layer.transparency,
-					})
-				end
+				-- Effects either sit above the layer's base image (e.g. inner shadow) or
+				-- behind it (drop shadow, stroke). The layer stack is ordered top-first, so
+				-- we collect each group separately and assemble them as
+				-- [above] -> [base] -> [below] once every effect is rendered.
+				local aboveComposited: { RenderLayer } = {}
+				local belowComposited: { RenderLayer } = {}
+				local aboveThumb: { RenderLayer } = {}
+				local belowThumb: { RenderLayer } = {}
 
 				for _, item in layer.effects do
 					if not item.isVisible then
@@ -605,6 +596,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					end
 
 					local effect = item.effect
+					local effectEntry = Effects.getByKind(effect.kind)
 					local cached = cache[item.id]
 
 					local entry: CacheEntry
@@ -612,11 +604,10 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						entry = cached
 					else
 						local output = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
-						local effectEntry = Effects.getByKind(effect.kind)
 						effectEntry.render(
-								{ img = editImage, svf = svfEdit, integral = integralEdit, output = output },
-								effect.properties
-							)
+							{ img = editImage, svf = svfEdit, integral = integralEdit, output = output },
+							effect.properties
+						)
 
 						if not alive then
 							output:Destroy()
@@ -638,25 +629,66 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					local foldedTransparency = 1 - (1 - layer.transparency) * (1 - effect.properties.transparency)
 
 					seenEffects[item.id] = true
-					table.insert(composited, {
+					local compositedEntry: RenderLayer = {
 						name = effect.name,
 						editImage = entry.editImage,
 						offset = layer.offset + effect.properties.offset,
 						tintColor = foldedTint,
 						transparency = foldedTransparency,
-					})
+					}
 					-- Thumbnail keeps the effect's own offset but not the layer's.
-					table.insert(layerRenderLayers, {
+					local thumbEntry: RenderLayer = {
 						name = effect.name,
 						editImage = entry.editImage,
 						offset = effect.properties.offset,
 						tintColor = foldedTint,
 						transparency = foldedTransparency,
-					})
+					}
+
+					if effectEntry.renderAboveBase then
+						table.insert(aboveComposited, compositedEntry)
+						table.insert(aboveThumb, thumbEntry)
+					else
+						table.insert(belowComposited, compositedEntry)
+						table.insert(belowThumb, thumbEntry)
+					end
+
 					table.insert(
 						signatureParts,
 						`{item.id}:{effect.renderTicket}:{effect.properties.offset}:{foldedTint}:{foldedTransparency}`
 					)
+				end
+
+				-- Assemble the layer stack top-first: above-base effects, the base image,
+				-- then behind-base effects.
+				local layerRenderLayers: { RenderLayer } = {}
+				for _, e in aboveComposited do
+					table.insert(composited, e)
+				end
+				for _, e in aboveThumb do
+					table.insert(layerRenderLayers, e)
+				end
+				if layer.showBaseImage then
+					table.insert(composited, {
+						name = layer.name,
+						editImage = baseEdit,
+						offset = layer.offset,
+						tintColor = layer.tintColor,
+						transparency = layer.transparency,
+					})
+					table.insert(layerRenderLayers, {
+						name = layer.name,
+						editImage = baseEdit,
+						offset = Vector2.zero,
+						tintColor = layer.tintColor,
+						transparency = layer.transparency,
+					})
+				end
+				for _, e in belowComposited do
+					table.insert(composited, e)
+				end
+				for _, e in belowThumb do
+					table.insert(layerRenderLayers, e)
 				end
 
 				-- Compose just this layer's render layers into its thumbnail, reusing the

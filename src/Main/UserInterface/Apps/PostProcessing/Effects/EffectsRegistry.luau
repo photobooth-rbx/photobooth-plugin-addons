@@ -24,6 +24,8 @@ export type EffectProps<Properties> = {
 
 export type Registration<Properties> = {
 	playerCreated: boolean,
+	-- Composite this effect above the layer's base image instead of behind it.
+	renderAboveBase: boolean?,
 	create: () -> Properties,
 	render: (ImageInputs, Properties) -> (),
 }
@@ -36,6 +38,7 @@ function EffectsRegistry.register<Properties>(kind: string, registration: Regist
 		kind = kind,
 		index = #effectByIndex + 1,
 		playerCreated = registration.playerCreated,
+		renderAboveBase = registration.renderAboveBase or false,
 
 		create = registration.create,
 		render = registration.render,

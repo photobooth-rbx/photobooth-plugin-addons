@@ -23,7 +23,13 @@ local function worker(inputs: EffectsRegistry.ImageInputs, properties: Propertie
 	local minY, maxY = crop.Min.Y, crop.Max.Y
 
 	local integral = inputs.integral:ReadPixelsBuffer(Vector2.zero, imgSize)
+	local svf = inputs.svf:ReadPixelsBuffer(Vector2.zero, imgSize)
 	local composed = buffer.create(cropWidth * cropHeight * 4)
+
+	-- Fixed 45-degree light from the top-left: the shadow only forms on inner edges whose
+	-- outward normal faces the light, so it reads as cast from a single direction instead
+	-- of bleeding in evenly from every edge. (1/sqrt(2) toward the top-left.)
+	local lightX, lightY = -0.7071067811865476, -0.7071067811865476
 
 	-- An inner shadow is the blurred background bleeding in from the edges, clipped to
 	-- the subject. `blur` is the soft band half-width (in px) and `spread` pushes the
@@ -50,9 +56,16 @@ local function worker(inputs: EffectsRegistry.ImageInputs, properties: Propertie
 			local shadowAlpha = 0
 			local insideMask = EffectsHelper.boxAverageAlpha(integral, imgWidth, imgHeight, x, y, 0)
 			if insideMask > 0 then
-				local backgroundCoverage =
-					1 - EffectsHelper.boxAverageAlpha(integral, imgWidth, imgHeight, x, y, radius)
-				shadowAlpha = EffectsHelper.smoothStep(loEdge, hiEdge, backgroundCoverage) * insideMask
+				local backgroundCoverage = 1
+					- EffectsHelper.boxAverageAlpha(integral, imgWidth, imgHeight, x, y, radius)
+
+				-- Full strength on edges facing the light, fading through a soft terminator
+				-- around the 90-degree line, and none on edges facing away.
+				local nx, ny = EffectsHelper.readEdgeNormal(svf, imgWidth, imgHeight, x, y)
+				local facing = nx * lightX + ny * lightY
+				local directional = EffectsHelper.smoothStep(-0.25, 0.25, facing)
+
+				shadowAlpha = EffectsHelper.smoothStep(loEdge, hiEdge, backgroundCoverage) * insideMask * directional
 			end
 
 			buffer.writeu8(composed, cj + 0, 255)

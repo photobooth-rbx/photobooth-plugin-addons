@@ -32,6 +32,33 @@ function EffectsHelper.readSignedDistance(svf: buffer, width: number, x: number,
 	return signedDistance
 end
 
+-- Outward unit normal at (x, y), estimated as the gradient of the signed distance via
+-- central differences. The distance field is smooth and sub-pixel accurate, so its
+-- gradient gives a continuous direction (unit length, pointing inside -> outside),
+-- unlike the single nearest-seed vector which only resolves ~8 directions near an edge.
+-- Neighbour samples are clamped to the image; returns 0, 0 if the gradient is degenerate.
+function EffectsHelper.readEdgeNormal(
+	svf: buffer,
+	width: number,
+	height: number,
+	x: number,
+	y: number
+): (number, number)
+	local xl = math.max(1, x - 1)
+	local xr = math.min(width, x + 1)
+	local yt = math.max(1, y - 1)
+	local yb = math.min(height, y + 1)
+
+	local gx = EffectsHelper.readSignedDistance(svf, width, xr, y) - EffectsHelper.readSignedDistance(svf, width, xl, y)
+	local gy = EffectsHelper.readSignedDistance(svf, width, x, yb) - EffectsHelper.readSignedDistance(svf, width, x, yt)
+
+	local len = math.sqrt(gx * gx + gy * gy)
+	if len < 1e-6 then
+		return 0, 0
+	end
+	return gx / len, gy / len
+end
+
 -- Reads a packed-u32 summed-area table value at (x, y): the total alpha of the
 -- rectangle from (1, 1) to (x, y). Coordinates are clamped to the image bounds, and
 -- anything left of / above the first pixel reads as 0, mirroring IntegralImage:read.
