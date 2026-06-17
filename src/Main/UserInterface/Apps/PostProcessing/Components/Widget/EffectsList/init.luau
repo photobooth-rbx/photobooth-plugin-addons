@@ -145,12 +145,18 @@ local function EffectsList(props: Props)
 
 	local layers = controller:useLayers()
 	local thumbnails = controller:useThumbnails()
-	local selection, setSelection = React.useState(nil :: Selection?)
+	local selection, setSelection = React.useState(if #layers > 0 then makeSelection(layers[1].id) else nil)
 	local pendingLayerId, setPendingLayerId = React.useState(nil :: string?)
 
 	local hasSelection = selection ~= nil
 	local isDialogOpen = pendingLayerId ~= nil
 	local selectedLayer, selectedEffect = resolveSelection(selection, layers)
+
+	React.useEffect(function()
+		if not selectedLayer and #layers > 0 then
+			setSelection(makeSelection(layers[1].id))
+		end
+	end, { selectedLayer, layers } :: { unknown })
 
 	local function moveSelected(step: number)
 		if not selection then
