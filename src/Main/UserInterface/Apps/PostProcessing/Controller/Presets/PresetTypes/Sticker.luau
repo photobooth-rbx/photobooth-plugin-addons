@@ -10,7 +10,7 @@ return PresetRegistry.register("sticker", {
 				{
 					kind = "Stroke",
 					properties = {
-						thickness = 8,
+						thickness = 6,
 						softness = 1,
 						color = Color3.new(1, 1, 1),
 					} :: { [string]: any },

@@ -22,7 +22,7 @@ return EffectsRegistry.register("Drop Shadow", {
 			blur = 10,
 			spread = 10,
 			clipped = false,
-			shadowOffset = Vector2.new(20, 20),
+			shadowOffset = Vector2.new(0, 0),
 			transparency = 0.6,
 			offset = Vector2.zero,
 			color = Color3.new(0, 0, 0),
