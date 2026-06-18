@@ -3,7 +3,9 @@ local EffectsRegistry = {}
 export type ImageInputs = {
 	img: EditableImage,
 	svf: EditableImage,
-	integral: EditableImage,
+	-- A blank, image-sized scratch buffer an effect may use for intermediate passes
+	-- (e.g. Drop Shadow's separable blur). Reused across renders; assume it holds garbage.
+	scratch: EditableImage,
 	output: EditableImage,
 }
 
