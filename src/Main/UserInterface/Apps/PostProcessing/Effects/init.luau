@@ -26,6 +26,8 @@ end
 loadEffects({
 	"Stroke",
 	"DropShadow",
+	"OuterGlow",
+	"InnerGlow",
 })
 
 return {

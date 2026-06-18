@@ -14,8 +14,9 @@ local IntegralImage = require(script.IntegralImage)
 
 -- Types
 
--- A composited render output, one per visible layer base image and per visible
--- sub-effect, consumed by the ImageViewer and LayerComposer.
+-- A composited render output, one per visible layer (its effects + base image
+-- flattened and colour-graded into a single image), consumed by the ImageViewer and
+-- LayerComposer.
 export type RenderLayer = LayerComposer.Layer
 
 export type Effect<Properties> = {
@@ -34,7 +35,8 @@ export type LayerEffect = {
 }
 
 -- The editable model: a layer is an image source (carrying its own offset/tint/
--- transparency) that owns an ordered list of sub-effects.
+-- transparency, plus a colour grade applied to its whole composited output) that owns
+-- an ordered list of sub-effects.
 export type Layer = {
 	id: string,
 	name: string,
@@ -44,6 +46,10 @@ export type Layer = {
 	offset: Vector2,
 	tintColor: Color3,
 	transparency: number,
+	brightness: number,
+	contrast: number,
+	saturation: number,
+	hue: number,
 	effects: { LayerEffect },
 }
 
@@ -87,6 +93,10 @@ local function makeLayer(name: string): Layer
 		offset = Vector2.zero,
 		tintColor = Color3.new(1, 1, 1),
 		transparency = 0,
+		brightness = 0,
+		contrast = 1,
+		saturation = 1,
+		hue = 0,
 		effects = {},
 	}
 end
@@ -352,6 +362,58 @@ function PostProcessingControllerClass.setLayerTransparency(
 	end)
 end
 
+function PostProcessingControllerClass.setLayerBrightness(
+	self: PostProcessingController,
+	layerId: string,
+	brightness: number
+)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.brightness = brightness
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setLayerContrast(
+	self: PostProcessingController,
+	layerId: string,
+	contrast: number
+)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.contrast = contrast
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setLayerSaturation(
+	self: PostProcessingController,
+	layerId: string,
+	saturation: number
+)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.saturation = saturation
+			return clone
+		end)
+	end)
+end
+
+function PostProcessingControllerClass.setLayerHue(self: PostProcessingController, layerId: string, hue: number)
+	self.observableLayers:update()(function(layers)
+		return mapLayer(layers, layerId, function(layer)
+			local clone = cloneLayer(layer)
+			clone.hue = hue
+			return clone
+		end)
+	end)
+end
+
 function PostProcessingControllerClass.setLayerShowBaseImage(
 	self: PostProcessingController,
 	layerId: string,
@@ -576,19 +638,22 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					continue
 				end
 
-				-- `layerRenderLayers` is just this layer, composited into its thumbnail; it
-				-- omits the layer's global offset so moving the layer doesn't push the
-				-- thumbnail off-canvas. The flat `composited` list (main preview) keeps it.
-				local signatureParts: { string } = { `L:{layer.tintColor}:{layer.transparency}:{layer.showBaseImage}` }
+				-- A layer is flattened into a single composited image (carrying its colour
+				-- grade) which serves as both its thumbnail and its entry in the flat preview/
+				-- export list. The render stack is built in thumbnail space (effect-relative
+				-- offsets, no layer offset); the layer's global offset is applied when the
+				-- finished image is placed into `composited`.
+				local signatureParts: { string } = {
+					`L:{layer.tintColor}:{layer.transparency}:{layer.showBaseImage}`
+						.. `:{layer.brightness}:{layer.contrast}:{layer.saturation}:{layer.hue}`,
+				}
 
-				-- Effects either sit above the layer's base image (e.g. inner shadow) or
-				-- behind it (drop shadow, stroke). The layer stack is ordered top-first, so
-				-- we collect each group separately and assemble them as
-				-- [above] -> [base] -> [below] once every effect is rendered.
-				local aboveComposited: { RenderLayer } = {}
-				local belowComposited: { RenderLayer } = {}
-				local aboveThumb: { RenderLayer } = {}
-				local belowThumb: { RenderLayer } = {}
+				-- Effects either sit above the layer's base image (e.g. inner glow) or behind
+				-- it (drop shadow, stroke, outer glow). The layer stack is ordered top-first, so
+				-- we collect each group separately and assemble them as [above] -> [base] ->
+				-- [below] once every effect is rendered.
+				local aboveLayers: { RenderLayer } = {}
+				local belowLayers: { RenderLayer } = {}
 
 				for _, item in layer.effects do
 					if not item.isVisible then
@@ -621,23 +686,15 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						cache[item.id] = entry
 					end
 
-					-- Fold the layer's image properties into each sub-effect: offsets add,
-					-- tints multiply, and transparencies compose on the alpha channel.
+					-- Fold the layer's tint/transparency into each sub-effect: tints multiply
+					-- and transparencies compose on the alpha channel.
 					local layerTint, effectTint = layer.tintColor, effect.properties.color
 					local foldedTint =
 						Color3.new(layerTint.R * effectTint.R, layerTint.G * effectTint.G, layerTint.B * effectTint.B)
 					local foldedTransparency = 1 - (1 - layer.transparency) * (1 - effect.properties.transparency)
 
 					seenEffects[item.id] = true
-					local compositedEntry: RenderLayer = {
-						name = effect.name,
-						editImage = entry.editImage,
-						offset = layer.offset + effect.properties.offset,
-						tintColor = foldedTint,
-						transparency = foldedTransparency,
-					}
-					-- Thumbnail keeps the effect's own offset but not the layer's.
-					local thumbEntry: RenderLayer = {
+					local renderLayer: RenderLayer = {
 						name = effect.name,
 						editImage = entry.editImage,
 						offset = effect.properties.offset,
@@ -646,11 +703,9 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					}
 
 					if effectEntry.renderAboveBase then
-						table.insert(aboveComposited, compositedEntry)
-						table.insert(aboveThumb, thumbEntry)
+						table.insert(aboveLayers, renderLayer)
 					else
-						table.insert(belowComposited, compositedEntry)
-						table.insert(belowThumb, thumbEntry)
+						table.insert(belowLayers, renderLayer)
 					end
 
 					table.insert(
@@ -662,20 +717,10 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 				-- Assemble the layer stack top-first: above-base effects, the base image,
 				-- then behind-base effects.
 				local layerRenderLayers: { RenderLayer } = {}
-				for _, e in aboveComposited do
-					table.insert(composited, e)
-				end
-				for _, e in aboveThumb do
+				for _, e in aboveLayers do
 					table.insert(layerRenderLayers, e)
 				end
 				if layer.showBaseImage then
-					table.insert(composited, {
-						name = layer.name,
-						editImage = baseEdit,
-						offset = layer.offset,
-						tintColor = layer.tintColor,
-						transparency = layer.transparency,
-					})
 					table.insert(layerRenderLayers, {
 						name = layer.name,
 						editImage = baseEdit,
@@ -684,23 +729,32 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						transparency = layer.transparency,
 					})
 				end
-				for _, e in belowComposited do
-					table.insert(composited, e)
-				end
-				for _, e in belowThumb do
+				for _, e in belowLayers do
 					table.insert(layerRenderLayers, e)
 				end
 
-				-- Compose just this layer's render layers into its thumbnail, reusing the
-				-- cached image whenever nothing affecting the layer changed.
+				-- Flatten the layer (applying its colour grade) into one image, reusing the
+				-- cached result whenever nothing affecting the layer changed. The same image
+				-- is the layer's thumbnail and its single entry in the flat preview list.
 				seenLayers[layer.id] = true
 				if #layerRenderLayers > 0 then
+					local adjustment: LayerComposer.Adjustment? = nil
+					if layer.brightness ~= 0 or layer.contrast ~= 1 or layer.saturation ~= 1 or layer.hue ~= 0 then
+						adjustment = {
+							brightness = layer.brightness,
+							contrast = layer.contrast,
+							saturation = layer.saturation,
+							hue = layer.hue,
+						}
+					end
+
 					local signature = table.concat(signatureParts, "|")
 					local cachedThumb = thumbnailCache[layer.id]
+					local image: EditableImage
 					if cachedThumb and cachedThumb.signature == signature then
-						thumbnails[layer.id] = cachedThumb.image
+						image = cachedThumb.image
 					else
-						local image = LayerComposer.composeAsync(editImage, layerRenderLayers)
+						image = LayerComposer.composeAsync(editImage, layerRenderLayers, adjustment)
 						if not alive then
 							image:Destroy()
 							return
@@ -709,8 +763,18 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 							cachedThumb.image:Destroy()
 						end
 						thumbnailCache[layer.id] = { image = image, signature = signature }
-						thumbnails[layer.id] = image
 					end
+					thumbnails[layer.id] = image
+
+					-- Tint and transparency are already baked in, so the flat entry is just
+					-- the finished image placed at the layer's global offset.
+					table.insert(composited, {
+						name = layer.name,
+						editImage = image,
+						offset = layer.offset,
+						tintColor = Color3.new(1, 1, 1),
+						transparency = 0,
+					})
 				elseif thumbnailCache[layer.id] then
 					thumbnailCache[layer.id].image:Destroy()
 					thumbnailCache[layer.id] = nil

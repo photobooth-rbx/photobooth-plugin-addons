@@ -8,6 +8,7 @@ local Types = require(script.Types)
 local LayerComposer = {}
 
 export type Layer = Types.Layer
+export type Adjustment = Types.Adjustment
 
 type WorkerAction = typeof(require(script.Worker))
 
@@ -35,7 +36,7 @@ local function sliceIntoStrips(region: Rect, nSlices: number)
 	return regions
 end
 
-function LayerComposer.composeAsync(editImage: EditableImage, layers: { Layer })
+function LayerComposer.composeAsync(editImage: EditableImage, layers: { Layer }, adjustment: Adjustment?)
 	scheduler:waitForReady()
 
 	local imgSize = editImage.Size
@@ -44,7 +45,7 @@ function LayerComposer.composeAsync(editImage: EditableImage, layers: { Layer })
 	local strips = sliceIntoStrips(fullRegion, scheduler:getActorCount())
 
 	for _, strip in strips do
-		scheduler:schedule(layers, strip, imgSize)
+		scheduler:schedule(layers, strip, imgSize, adjustment)
 	end
 
 	local results = scheduler:workAsync()

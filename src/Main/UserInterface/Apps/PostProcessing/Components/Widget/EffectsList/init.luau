@@ -136,6 +136,59 @@ local function LayerProperties(props: {
 				controller:setLayerTint(layerId, newValue)
 			end,
 		}),
+
+		Brightness = React.createElement(StudioProperties.Number, {
+			FieldName = "Brightness",
+			Min = -1,
+			Max = 1,
+			Value = selectedLayer.brightness,
+			Disabled = props.Disabled,
+			LayoutOrder = 6,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerBrightness(layerId, newValue)
+			end,
+		}),
+
+		Contrast = React.createElement(StudioProperties.Number, {
+			FieldName = "Contrast",
+			Min = -1,
+			Max = 1,
+			Value = selectedLayer.contrast - 1,
+			Disabled = props.Disabled,
+			LayoutOrder = 7,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerContrast(layerId, newValue + 1)
+			end,
+		}),
+
+		Saturation = React.createElement(StudioProperties.Number, {
+			FieldName = "Saturation",
+			Min = -1,
+			Max = 1,
+			Value = selectedLayer.saturation - 1,
+			Disabled = props.Disabled,
+			LayoutOrder = 8,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerSaturation(layerId, newValue + 1)
+			end,
+		}),
+
+		Hue = React.createElement(StudioProperties.Number, {
+			FieldName = "Hue",
+			Step = 1,
+			Min = -180,
+			Max = 180,
+			Value = selectedLayer.hue,
+			Disabled = props.Disabled,
+			LayoutOrder = 9,
+
+			OnValueSubmitted = function(newValue)
+				controller:setLayerHue(layerId, newValue)
+			end,
+		}),
 	})
 end
 

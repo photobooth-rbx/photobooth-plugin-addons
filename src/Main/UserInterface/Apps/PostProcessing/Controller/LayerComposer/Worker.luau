@@ -2,17 +2,36 @@
 
 local Types = require(script.Parent.Types)
 
+-- Rec. 601 luma weights, shared by the saturation lerp and the hue-rotation matrix.
+local LR, LG, LB = 0.299, 0.587, 0.114
+
 -- `crop` is the horizontal strip of the output this actor is responsible for, but
 -- layer offsets can sample pixels from anywhere in the image (a vertical offset
 -- pulls from a neighbouring strip), so each layer is read in full and sampled by
--- global coordinates.
+-- global coordinates. `adjust`, when present, is a colour grade applied to the final
+-- blended pixel (so it covers the base image and every effect in the layer alike).
 @native
-local function worker(layers: { Types.Layer }, crop: Rect, fullSize: Vector2)
+local function worker(layers: { Types.Layer }, crop: Rect, fullSize: Vector2, adjust: Types.Adjustment?)
 	local cropMin = crop.Min
 	local cropSize = crop.Max - crop.Min
 	local cropWidth, cropHeight = cropSize.X, cropSize.Y
 	local fullWidth, fullHeight = fullSize.X, fullSize.Y
 	local composed = buffer.create(cropWidth * cropHeight * 4)
+
+	-- Precompute the colour-grade coefficients once per strip. The hue-rotation matrix is
+	-- the standard luma-preserving (YIQ-derived) form; at hue 0 it collapses to identity.
+	local brightness, contrast, saturation = 0, 1, 1
+	local m00, m01, m02 = 1, 0, 0
+	local m10, m11, m12 = 0, 1, 0
+	local m20, m21, m22 = 0, 0, 1
+	if adjust then
+		brightness, contrast, saturation = adjust.brightness, adjust.contrast, adjust.saturation
+		local h = math.rad(adjust.hue)
+		local U, W = math.cos(h), math.sin(h)
+		m00, m01, m02 = LR + U * (1 - LR) - W * LR, LG - U * LG - W * LG, LB - U * LB + W * (1 - LB)
+		m10, m11, m12 = LR - U * LR + W * 0.143, LG + U * (1 - LG) + W * 0.140, LB - U * LB - W * 0.283
+		m20, m21, m22 = LR - U * LR - W * (1 - LR), LG - U * LG + W * LG, LB + U * (1 - LB) + W * LB
+	end
 
 	local bufferByLayer = {}
 	for _, layer in layers do
@@ -58,6 +77,28 @@ local function worker(layers: { Types.Layer }, crop: Rect, fullSize: Vector2)
 				end
 
 				blendedRGBA = newRGBA
+			end
+
+			if adjust then
+				local cr = blendedRGBA[1] / 255
+				local cg = blendedRGBA[2] / 255
+				local cb = blendedRGBA[3] / 255
+
+				-- Contrast pivots around mid-grey, then brightness offsets.
+				cr = (cr - 0.5) * contrast + 0.5 + brightness
+				cg = (cg - 0.5) * contrast + 0.5 + brightness
+				cb = (cb - 0.5) * contrast + 0.5 + brightness
+
+				-- Saturation lerps each channel toward / away from luma.
+				local luma = cr * LR + cg * LG + cb * LB
+				cr = luma + (cr - luma) * saturation
+				cg = luma + (cg - luma) * saturation
+				cb = luma + (cb - luma) * saturation
+
+				-- Hue rotation. Alpha (blendedRGBA[4]) is untouched.
+				blendedRGBA[1] = math.clamp(cr * m00 + cg * m01 + cb * m02, 0, 1) * 255
+				blendedRGBA[2] = math.clamp(cr * m10 + cg * m11 + cb * m12, 0, 1) * 255
+				blendedRGBA[3] = math.clamp(cr * m20 + cg * m21 + cb * m22, 0, 1) * 255
 			end
 
 			local oj = (x + y * cropWidth) * 4

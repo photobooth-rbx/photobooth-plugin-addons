@@ -6,4 +6,13 @@ export type Layer = {
 	transparency: number,
 }
 
+-- A colour grade applied to the composited result (not per-layer). Identity is
+-- brightness 0, contrast 1, saturation 1, hue 0.
+export type Adjustment = {
+	brightness: number,
+	contrast: number,
+	saturation: number,
+	hue: number,
+}
+
 return {}
