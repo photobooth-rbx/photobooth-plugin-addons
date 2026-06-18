@@ -231,7 +231,7 @@ export type PostProcessingController = typeof(setmetatable(
 		editImage: EditableImage?,
 		imageTrove: Trove.Trove,
 
-		observableThumbnails: ObservableValue.ObservableValue<{ [string]: EditableImage }>,
+		observableThumbnails: ObservableValue.ObservableValue<{ [string]: { RenderLayer } }>,
 		observableLayers: ObservableValue.ObservableValue<{ Layer }>,
 		observableComposited: ObservableValue.ObservableValue<{ RenderLayer }>,
 		observablePresets: ObservableValue.ObservableValue<{ Preset }>,
@@ -245,7 +245,7 @@ function PostProcessingControllerStatic.new()
 	self.editImage = nil
 	self.imageTrove = Trove.new()
 
-	self.observableThumbnails = ObservableValue.new({} :: { [string]: EditableImage })
+	self.observableThumbnails = ObservableValue.new({} :: { [string]: { RenderLayer } })
 	self.observableLayers = ObservableValue.new({ makeLayer("Image") })
 	self.observableComposited = ObservableValue.new({})
 	self.observablePresets = ObservableValue.new(buildDefaultPresets())
@@ -667,7 +667,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 
 		local function buildOnce()
 			local composited: { RenderLayer } = {}
-			local thumbnails: { [string]: EditableImage } = {}
+			local thumbnails: { [string]: { RenderLayer } } = {}
 			local seenEffects: { [string]: boolean } = {}
 			local seenLayers: { [string]: boolean } = {}
 
@@ -676,11 +676,10 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					continue
 				end
 
-				-- A layer is flattened into a single composited image (its effects + base,
-				-- colour-graded) which serves as both its thumbnail and its entry in the flat
-				-- preview/export list. The layer's tint/transparency/offset are NOT baked in -
-				-- they're applied as cheap display-time properties - so they're absent from the
-				-- signature and changing them never re-composites.
+				-- A graded layer is flattened into one colour-graded image (a grade can't be a
+				-- display property); an ungraded layer skips the flatten and stays a stack of
+				-- per-effect images. Either way the layer's tint/transparency/offset are applied
+				-- as display-time properties, never baked, so they're absent from the signature.
 				local signatureParts: { string } = {
 					`L:{layer.showBaseImage}:{layer.brightness}:{layer.contrast}:{layer.saturation}:{layer.hue}`,
 				}
@@ -766,20 +765,27 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					table.insert(layerRenderLayers, e)
 				end
 
-				-- Flatten the layer (applying its colour grade) into one image, reusing the
-				-- cached result whenever nothing affecting the layer changed. The same image
-				-- is the layer's thumbnail and its single entry in the flat preview list.
+				local hasGrade = layer.brightness ~= 0 or layer.contrast ~= 1 or layer.saturation ~= 1 or layer.hue ~= 0
+
 				seenLayers[layer.id] = true
-				if #layerRenderLayers > 0 then
-					local adjustment: LayerComposer.Adjustment? = nil
-					if layer.brightness ~= 0 or layer.contrast ~= 1 or layer.saturation ~= 1 or layer.hue ~= 0 then
-						adjustment = {
-							brightness = layer.brightness,
-							contrast = layer.contrast,
-							saturation = layer.saturation,
-							hue = layer.hue,
-						}
+
+				if #layerRenderLayers == 0 then
+					-- Nothing visible in this layer; drop any cached composite and emit nothing.
+					if thumbnailCache[layer.id] then
+						thumbnailCache[layer.id].image:Destroy()
+						thumbnailCache[layer.id] = nil
 					end
+				elseif hasGrade then
+					-- Flatten the layer into one colour-graded image, reusing the cached result
+					-- whenever nothing affecting it changed. Effect colours/transparencies are
+					-- baked in by the compose; the layer-wide tint/transparency stay as display
+					-- properties on the single result.
+					local adjustment: LayerComposer.Adjustment = {
+						brightness = layer.brightness,
+						contrast = layer.contrast,
+						saturation = layer.saturation,
+						hue = layer.hue,
+					}
 
 					local signature = table.concat(signatureParts, "|")
 					local cachedThumb = thumbnailCache[layer.id]
@@ -797,21 +803,52 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						end
 						thumbnailCache[layer.id] = { image = image, signature = signature }
 					end
-					thumbnails[layer.id] = image
 
-					-- The layer's offset/tint/transparency ride on the entry as display-time
-					-- properties (native ImageLabel in the preview, the blend pass in export)
-					-- rather than being baked into the image, so adjusting them is free.
-					table.insert(composited, {
+					local entry: RenderLayer = {
 						name = layer.name,
 						editImage = image,
 						offset = layer.offset,
 						tintColor = layer.tintColor,
 						transparency = layer.transparency,
-					})
-				elseif thumbnailCache[layer.id] then
-					thumbnailCache[layer.id].image:Destroy()
-					thumbnailCache[layer.id] = nil
+					}
+					table.insert(composited, entry)
+					-- The thumbnail omits the layer's global offset so moving the layer doesn't
+					-- push it off-canvas.
+					thumbnails[layer.id] = { table.clone(entry) :: RenderLayer }
+					thumbnails[layer.id][1].offset = Vector2.zero
+				else
+					-- No grade, so no compose: each effect (and the base) stays a separate
+					-- ImageLabel. Fold the layer's tint/transparency into each effect's own and
+					-- emit per-effect entries for the preview (with the layer offset) and the
+					-- thumbnail (without it). Changing an effect's colour/transparency/offset
+					-- only rebuilds these lightweight entries - no re-composite.
+					if thumbnailCache[layer.id] then
+						thumbnailCache[layer.id].image:Destroy()
+						thumbnailCache[layer.id] = nil
+					end
+
+					local thumbLayers: { RenderLayer } = {}
+					for _, renderLayer in layerRenderLayers do
+						local lt, et = layer.tintColor, renderLayer.tintColor
+						local foldedTint = Color3.new(lt.R * et.R, lt.G * et.G, lt.B * et.B)
+						local foldedTransparency = 1 - (1 - layer.transparency) * (1 - renderLayer.transparency)
+
+						table.insert(thumbLayers, {
+							name = renderLayer.name,
+							editImage = renderLayer.editImage,
+							offset = renderLayer.offset,
+							tintColor = foldedTint,
+							transparency = foldedTransparency,
+						})
+						table.insert(composited, {
+							name = renderLayer.name,
+							editImage = renderLayer.editImage,
+							offset = layer.offset + renderLayer.offset,
+							tintColor = foldedTint,
+							transparency = foldedTransparency,
+						})
+					end
+					thumbnails[layer.id] = thumbLayers
 				end
 			end
 

@@ -15,11 +15,20 @@ local ARROW_DOWN = assert(Lucide.GetAsset("chevron-down", 16))
 local TRASH_ICON = assert(Lucide.GetAsset("trash", 16))
 local IMAGE_ICON = assert(Lucide.GetAsset("file-image", 24))
 
+-- One image in the layer's flattened preview, with its display-time tint/transparency
+-- already folded in. Structurally a Controller.RenderLayer; offset is ignored at thumbnail
+-- scale.
+export type ThumbnailLayer = {
+	name: string,
+	editImage: EditableImage,
+	offset: Vector2,
+	tintColor: Color3,
+	transparency: number,
+}
+
 export type Props = {
 	Title: string,
-	Image: Content?,
-	ImageTintColor: Color3?,
-	ImageTransparency: number?,
+	ThumbnailLayers: { ThumbnailLayer }?,
 	IsVisible: boolean,
 	IsSelected: boolean,
 	IsExpanded: boolean?,
@@ -40,6 +49,45 @@ local function Layer(props: Props)
 	local theme = StudioComponents.useTheme()
 
 	local hasSubEffects = props.children ~= nil and next(props.children :: any) ~= nil
+
+	-- The thumbnail is the layer's preview stacked top-first as ImageLabels (each carrying
+	-- its folded tint/transparency), or a placeholder icon when the layer renders nothing.
+	-- Offset is dropped: at 38px it's sub-pixel.
+	local thumbnailChildren: { [string]: React.ReactNode } = {}
+	local thumbnailLayers = props.ThumbnailLayers
+	if thumbnailLayers and #thumbnailLayers > 0 then
+		for i, thumbnailLayer in thumbnailLayers do
+			thumbnailChildren["Layer" .. i] = React.createElement("ImageLabel", {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				ScaleType = Enum.ScaleType.Fit,
+				ImageContent = Content.fromObject(thumbnailLayer.editImage),
+				ImageColor3 = thumbnailLayer.tintColor,
+				ImageTransparency = thumbnailLayer.transparency,
+				ZIndex = -i,
+			})
+		end
+	else
+		thumbnailChildren.Icon = React.createElement("ImageLabel", {
+			Size = UDim2.fromOffset(IMAGE_ICON.ImageRectSize.X, IMAGE_ICON.ImageRectSize.Y),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Image = IMAGE_ICON.Url,
+			ImageColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Button),
+			ImageRectSize = IMAGE_ICON.ImageRectSize,
+			ImageRectOffset = IMAGE_ICON.ImageRectOffset,
+		})
+	end
+	thumbnailChildren.UIStroke = React.createElement("UIStroke", {
+		Thickness = 1,
+		Transparency = 0,
+		Color = theme:GetColor(
+			Enum.StudioStyleGuideColor.InputFieldBorder,
+			if props.IsSelected then Enum.StudioStyleGuideModifier.Hover else Enum.StudioStyleGuideModifier.Default
+		),
+		BorderStrokePosition = Enum.BorderStrokePosition.Outer,
+	})
 
 	local mainBackground = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground)
 	local backgroundColor = if props.IsSelected
@@ -130,38 +178,11 @@ local function Layer(props: Props)
 				LayoutOrder = 2,
 			}),
 
-			ImageIcon = React.createElement("ImageLabel", {
+			ImageIcon = React.createElement("Frame", {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(38, 38),
 				LayoutOrder = 3,
-				ScaleType = Enum.ScaleType.Fit,
-				ImageContent = props.Image,
-				ImageColor3 = props.ImageTintColor,
-				ImageTransparency = props.ImageTransparency,
-			}, {
-				Icon = not props.Image and React.createElement("ImageLabel", {
-					Size = UDim2.fromOffset(IMAGE_ICON.ImageRectSize.X, IMAGE_ICON.ImageRectSize.Y),
-					Position = UDim2.fromScale(0.5, 0.5),
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundTransparency = 1,
-					Image = IMAGE_ICON.Url,
-					ImageColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Button),
-					ImageRectSize = IMAGE_ICON.ImageRectSize,
-					ImageRectOffset = IMAGE_ICON.ImageRectOffset,
-				}),
-
-				UIStroke = React.createElement("UIStroke", {
-					Thickness = 1,
-					Transparency = 0,
-					Color = theme:GetColor(
-						Enum.StudioStyleGuideColor.InputFieldBorder,
-						if props.IsSelected
-							then Enum.StudioStyleGuideModifier.Hover
-							else Enum.StudioStyleGuideModifier.Default
-					),
-					BorderStrokePosition = Enum.BorderStrokePosition.Outer,
-				}),
-			}),
+			}, thumbnailChildren),
 
 			Title = React.createElement("TextLabel", {
 				BackgroundTransparency = 1,

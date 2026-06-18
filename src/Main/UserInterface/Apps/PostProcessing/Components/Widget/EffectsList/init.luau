@@ -225,7 +225,7 @@ local function EffectsList(props: Props)
 
 	local layerNodes: { [string]: React.ReactNode } = {}
 	for layerOrder, layer in layers do
-		local thumbnail = thumbnails[layer.id]
+		local thumbnailLayers = thumbnails[layer.id]
 
 		local effectNodes: { [string]: React.ReactNode } = {}
 		for effectOrder, item in layer.effects do
@@ -256,9 +256,7 @@ local function EffectsList(props: Props)
 
 		layerNodes["Layer_" .. layer.id] = React.createElement(Layer, {
 			Title = layer.name,
-			Image = if thumbnail then Content.fromObject(thumbnail) else nil,
-			ImageTintColor = layer.tintColor,
-			ImageTransparency = layer.transparency,
+			ThumbnailLayers = thumbnailLayers,
 			IsVisible = layer.isVisible,
 			IsSelected = selection ~= nil and selection.layerId == layer.id and selection.effectId == nil,
 			IsExpanded = layer.isExpanded,
