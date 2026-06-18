@@ -1,12 +1,12 @@
 local presetsRoot = script:FindFirstAncestor("Presets")
 local PresetRegistry = require(presetsRoot.PresetRegistry)
 
-return PresetRegistry.register("dropShadow", {
-	name = "Black & White",
+return PresetRegistry.register("default", {
+	name = "Default",
 	layers = {
 		{
-			name = "Black & White",
-			saturation = 0,
+			name = "Image",
+			effects = {},
 		},
 	},
 })

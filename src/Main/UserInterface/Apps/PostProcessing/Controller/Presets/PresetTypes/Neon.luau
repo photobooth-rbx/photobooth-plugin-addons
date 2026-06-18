@@ -5,16 +5,23 @@ return PresetRegistry.register("dropShadow", {
 	name = "Neon",
 	layers = {
 		{
+			name = "Neon",
 			effects = {
 				{
 					kind = "Stroke",
-					name = "Core",
-					properties = { thickness = 2, softness = 1, color = Color3.new(1, 1, 1) },
+					properties = {
+						thickness = 2,
+						softness = 1,
+						color = Color3.new(1, 1, 1),
+					} :: { [string]: any },
 				},
 				{
 					kind = "Outer Glow",
-					name = "Glow",
-					properties = { size = 22, falloff = 2.5, color = Color3.fromRGB(0, 200, 255) },
+					properties = {
+						size = 22,
+						falloff = 2.5,
+						color = Color3.fromRGB(0, 200, 255),
+					} :: { [string]: any },
 				},
 			},
 		},

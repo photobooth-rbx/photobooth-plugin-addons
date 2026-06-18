@@ -12,6 +12,7 @@ local function loadPresetTypes(names: { string })
 end
 
 loadPresetTypes({
+	"Default",
 	"Sticker",
 	"BlackWhite",
 	"Vintage",
