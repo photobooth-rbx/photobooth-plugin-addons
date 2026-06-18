@@ -21,7 +21,7 @@ return EffectsRegistry.register("Outer Glow", {
 		local properties: Properties = {
 			size = 15,
 			falloff = 2,
-			clipped = true,
+			clipped = false,
 			transparency = 0,
 			offset = Vector2.zero,
 			color = Color3.new(1, 1, 1),

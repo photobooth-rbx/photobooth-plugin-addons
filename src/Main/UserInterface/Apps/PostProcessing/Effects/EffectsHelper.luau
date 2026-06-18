@@ -1,13 +1,5 @@
 local EffectsHelper = {}
 
-local function getBoxIntersection(x: number, y: number)
-	local directionUnit = Vector2.new(x, y).Unit
-	local tMaxX = 0.5 / math.abs(directionUnit.X)
-	local tMaxY = 0.5 / math.abs(directionUnit.Y)
-	local intersection = directionUnit * math.min(tMaxX, tMaxY)
-	return intersection.X, intersection.Y
-end
-
 function EffectsHelper.smoothStep(edge0: number, edge1: number, x: number)
 	local t = math.clamp((x - edge0) / (edge1 - edge0), 0, 1)
 	return t * t * (3.0 - 2.0 * t)
@@ -23,45 +15,13 @@ function EffectsHelper.readSignedDistance(svf: buffer, width: number, x: number,
 
 	local ny = math.floor((pixelIndex - 1) / width) + 1
 	local nx = pixelIndex - (ny - 1) * width
+	local ox = math.max(0, math.abs(x - nx) - 0.5)
+	local oy = math.max(0, math.abs(y - ny) - 0.5)
+	local distance = math.sqrt(ox * ox + oy * oy)
 
-	local bx, by = getBoxIntersection(x - nx, y - ny)
-	local distanceSq = (x - (nx + bx)) ^ 2 + (y - (ny + by)) ^ 2
-	local distance = math.sqrt(distanceSq)
-	local signedDistance = distance * sign
-
-	return signedDistance
+	return distance * sign
 end
 
--- Outward unit normal at (x, y), estimated as the gradient of the signed distance via
--- central differences. The distance field is smooth and sub-pixel accurate, so its
--- gradient gives a continuous direction (unit length, pointing inside -> outside),
--- unlike the single nearest-seed vector which only resolves ~8 directions near an edge.
--- Neighbour samples are clamped to the image; returns 0, 0 if the gradient is degenerate.
-function EffectsHelper.readEdgeNormal(
-	svf: buffer,
-	width: number,
-	height: number,
-	x: number,
-	y: number
-): (number, number)
-	local xl = math.max(1, x - 1)
-	local xr = math.min(width, x + 1)
-	local yt = math.max(1, y - 1)
-	local yb = math.min(height, y + 1)
-
-	local gx = EffectsHelper.readSignedDistance(svf, width, xr, y) - EffectsHelper.readSignedDistance(svf, width, xl, y)
-	local gy = EffectsHelper.readSignedDistance(svf, width, x, yb) - EffectsHelper.readSignedDistance(svf, width, x, yt)
-
-	local len = math.sqrt(gx * gx + gy * gy)
-	if len < 1e-6 then
-		return 0, 0
-	end
-	return gx / len, gy / len
-end
-
--- Reads a packed-u32 summed-area table value at (x, y): the total alpha of the
--- rectangle from (1, 1) to (x, y). Coordinates are clamped to the image bounds, and
--- anything left of / above the first pixel reads as 0, mirroring IntegralImage:read.
 function EffectsHelper.readIntegral(integral: buffer, width: number, height: number, x: number, y: number): number
 	local cx = math.min(x, width)
 	local cy = math.min(y, height)
@@ -71,8 +31,6 @@ function EffectsHelper.readIntegral(integral: buffer, width: number, height: num
 	return 0
 end
 
--- Average alpha in [0, 1] over the (2r+1)^2 box centred on (x, y), via the summed-area
--- table. Normalised by the number of in-bounds pixels so edges don't darken.
 function EffectsHelper.boxAverageAlpha(
 	integral: buffer,
 	width: number,
