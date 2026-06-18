@@ -257,6 +257,8 @@ local function EffectsList(props: Props)
 		layerNodes["Layer_" .. layer.id] = React.createElement(Layer, {
 			Title = layer.name,
 			Image = if thumbnail then Content.fromObject(thumbnail) else nil,
+			ImageTintColor = layer.tintColor,
+			ImageTransparency = layer.transparency,
 			IsVisible = layer.isVisible,
 			IsSelected = selection ~= nil and selection.layerId == layer.id and selection.effectId == nil,
 			IsExpanded = layer.isExpanded,

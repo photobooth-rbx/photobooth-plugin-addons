@@ -645,8 +645,9 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 			integralEdit:Destroy()
 		end)
 
-		-- The shared, unmodified base image; each visible layer references it and the
-		-- compose step applies that layer's offset/tint/transparency.
+		-- The shared, unmodified base image; each visible layer references it. Only the
+		-- layer's effects and colour grade are baked into its composite; the layer's
+		-- offset/tint/transparency are applied later as display-time properties.
 		local baseEdit = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
 		self.imageTrove:Add(function()
 			baseEdit:Destroy()
@@ -685,14 +686,13 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					continue
 				end
 
-				-- A layer is flattened into a single composited image (carrying its colour
-				-- grade) which serves as both its thumbnail and its entry in the flat preview/
-				-- export list. The render stack is built in thumbnail space (effect-relative
-				-- offsets, no layer offset); the layer's global offset is applied when the
-				-- finished image is placed into `composited`.
+				-- A layer is flattened into a single composited image (its effects + base,
+				-- colour-graded) which serves as both its thumbnail and its entry in the flat
+				-- preview/export list. The layer's tint/transparency/offset are NOT baked in -
+				-- they're applied as cheap display-time properties - so they're absent from the
+				-- signature and changing them never re-composites.
 				local signatureParts: { string } = {
-					`L:{layer.tintColor}:{layer.transparency}:{layer.showBaseImage}`
-						.. `:{layer.brightness}:{layer.contrast}:{layer.saturation}:{layer.hue}`,
+					`L:{layer.showBaseImage}:{layer.brightness}:{layer.contrast}:{layer.saturation}:{layer.hue}`,
 				}
 
 				-- Effects either sit above the layer's base image (e.g. inner glow) or behind
@@ -733,20 +733,16 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						cache[item.id] = entry
 					end
 
-					-- Fold the layer's tint/transparency into each sub-effect: tints multiply
-					-- and transparencies compose on the alpha channel.
-					local layerTint, effectTint = layer.tintColor, effect.properties.color
-					local foldedTint =
-						Color3.new(layerTint.R * effectTint.R, layerTint.G * effectTint.G, layerTint.B * effectTint.B)
-					local foldedTransparency = 1 - (1 - layer.transparency) * (1 - effect.properties.transparency)
-
+					-- Bake each sub-effect's own colour and transparency into the layer
+					-- composite. (The layer-wide tint/transparency are applied later, at display
+					-- time, not folded in here.)
 					seenEffects[item.id] = true
 					local renderLayer: RenderLayer = {
 						name = effect.name,
 						editImage = entry.editImage,
 						offset = effect.properties.offset,
-						tintColor = foldedTint,
-						transparency = foldedTransparency,
+						tintColor = effect.properties.color,
+						transparency = effect.properties.transparency,
 					}
 
 					if effectEntry.renderAboveBase then
@@ -757,7 +753,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 
 					table.insert(
 						signatureParts,
-						`{item.id}:{effect.renderTicket}:{effect.properties.offset}:{foldedTint}:{foldedTransparency}`
+						`{item.id}:{effect.renderTicket}:{effect.properties.offset}:{effect.properties.color}:{effect.properties.transparency}`
 					)
 				end
 
@@ -772,8 +768,8 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 						name = layer.name,
 						editImage = baseEdit,
 						offset = Vector2.zero,
-						tintColor = layer.tintColor,
-						transparency = layer.transparency,
+						tintColor = Color3.new(1, 1, 1),
+						transparency = 0,
 					})
 				end
 				for _, e in belowLayers do
@@ -813,14 +809,15 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					end
 					thumbnails[layer.id] = image
 
-					-- Tint and transparency are already baked in, so the flat entry is just
-					-- the finished image placed at the layer's global offset.
+					-- The layer's offset/tint/transparency ride on the entry as display-time
+					-- properties (native ImageLabel in the preview, the blend pass in export)
+					-- rather than being baked into the image, so adjusting them is free.
 					table.insert(composited, {
 						name = layer.name,
 						editImage = image,
 						offset = layer.offset,
-						tintColor = Color3.new(1, 1, 1),
-						transparency = 0,
+						tintColor = layer.tintColor,
+						transparency = layer.transparency,
 					})
 				elseif thumbnailCache[layer.id] then
 					thumbnailCache[layer.id].image:Destroy()

@@ -18,6 +18,8 @@ local IMAGE_ICON = assert(Lucide.GetAsset("file-image", 24))
 export type Props = {
 	Title: string,
 	Image: Content?,
+	ImageTintColor: Color3?,
+	ImageTransparency: number?,
 	IsVisible: boolean,
 	IsSelected: boolean,
 	IsExpanded: boolean?,
@@ -134,6 +136,8 @@ local function Layer(props: Props)
 				LayoutOrder = 3,
 				ScaleType = Enum.ScaleType.Fit,
 				ImageContent = props.Image,
+				ImageColor3 = props.ImageTintColor,
+				ImageTransparency = props.ImageTransparency,
 			}, {
 				Icon = not props.Image and React.createElement("ImageLabel", {
 					Size = UDim2.fromOffset(IMAGE_ICON.ImageRectSize.X, IMAGE_ICON.ImageRectSize.Y),
