@@ -11,11 +11,14 @@ local uiRoot = script:FindFirstAncestor("UserInterface")
 local LucideIconButton = require(uiRoot.Components.LucideIconButton)
 
 local PresetDialog = require(script.PresetDialog)
+local ConfirmDialog = require(script.ConfirmDialog)
 
 local SCROLL_GRADIENT_INSET_HEIGHT = 22
 local ADD_EFFECT_BUTTON_HEIGHT = 32
 local SAVE_ICON = assert(Lucide.GetAsset("save", 16))
 local TRASH_ICON = assert(Lucide.GetAsset("trash", 16))
+local DEFAULT_PRESET_ICON = assert(Lucide.GetAsset("folder", 16))
+local USER_PRESET_ICON = assert(Lucide.GetAsset("notebook-pen", 16))
 
 export type Props = {
 	AnchorPoint: Vector2?,
@@ -34,7 +37,7 @@ type PresetRowProps = {
 	LayoutOrder: number,
 	Disabled: boolean?,
 	IsDefault: boolean?,
-	OnApply: () -> (),
+	OnLoad: () -> (),
 	OnDelete: () -> (),
 }
 
@@ -51,9 +54,11 @@ local function PresetRow(props: PresetRowProps)
 		Size = UDim2.new(1, 0, 0, 32),
 		LayoutOrder = props.LayoutOrder,
 
+		-- Clicking anywhere on the row loads the preset (routed through a confirm dialog).
+		-- The Delete button sinks its own click, so it doesn't trigger a load.
 		[React.Event.InputBegan] = function(_, input: InputObject)
 			if not props.Disabled and input.UserInputType == Enum.UserInputType.MouseButton1 then
-				props.OnApply()
+				props.OnLoad()
 			end
 		end,
 		[React.Event.MouseEnter] = function()
@@ -75,9 +80,33 @@ local function PresetRow(props: PresetRowProps)
 			Padding = UDim.new(0, 4),
 		}),
 
+		IconContainer = React.createElement("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(20, 16),
+			LayoutOrder = 1,
+		}, {
+			Icon = React.createElement("ImageLabel", {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromOffset(16, 16),
+				Image = if props.IsDefault then DEFAULT_PRESET_ICON.Url else USER_PRESET_ICON.Url,
+				ImageRectSize = if props.IsDefault
+					then DEFAULT_PRESET_ICON.ImageRectSize
+					else USER_PRESET_ICON.ImageRectSize,
+				ImageRectOffset = if props.IsDefault
+					then DEFAULT_PRESET_ICON.ImageRectOffset
+					else USER_PRESET_ICON.ImageRectOffset,
+				ImageColor3 = theme:GetColor(
+					Enum.StudioStyleGuideColor.MainText,
+					if props.Disabled then Enum.StudioStyleGuideModifier.Disabled else nil
+				),
+			}),
+		}),
+
+		-- Reserve room for the leading glyph and the trailing Delete so titles line up across
+		-- rows whether or not a row shows Delete.
 		Title = React.createElement("TextLabel", {
 			BackgroundTransparency = 1,
-			Size = UDim2.new(1, -28, 1, 0),
+			Size = UDim2.new(1, -48, 1, 0),
 			FontFace = Font.fromName("SourceSansPro"),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Center,
@@ -88,11 +117,10 @@ local function PresetRow(props: PresetRowProps)
 			),
 			Text = props.Name,
 			TextSize = 14,
-			LayoutOrder = 1,
+			LayoutOrder = 2,
 		}),
 
-		-- Default presets are permanent, so they show no delete affordance. The title still
-		-- reserves the button's width so default and user rows stay column-aligned.
+		-- Default presets are permanent, so they show no delete affordance.
 		Delete = not props.IsDefault and React.createElement(LucideIconButton, {
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.fromScale(0, 0.5),
@@ -100,7 +128,7 @@ local function PresetRow(props: PresetRowProps)
 			IconSize = UDim2.fromOffset(14, 14),
 			Icon = TRASH_ICON,
 			Disabled = props.Disabled,
-			LayoutOrder = 2,
+			LayoutOrder = 3,
 			OnActivated = props.OnDelete,
 		}),
 	})
@@ -112,6 +140,17 @@ local function PresetsList(props: Props)
 
 	local presets = controller:usePresets()
 	local isDialogOpen, setIsDialogOpen = React.useState(false)
+	local pendingLoadId, setPendingLoadId = React.useState(nil :: string?)
+
+	local pendingLoadPreset: Controller.Preset? = nil
+	if pendingLoadId ~= nil then
+		for _, preset in presets do
+			if preset.id == pendingLoadId then
+				pendingLoadPreset = preset
+				break
+			end
+		end
+	end
 
 	local presetNodes: { [string]: React.ReactNode } = {}
 	for order, preset in presets do
@@ -121,8 +160,8 @@ local function PresetsList(props: Props)
 			Disabled = props.Disabled,
 			IsDefault = preset.isDefault,
 
-			OnApply = function()
-				controller:applyPreset(preset.id)
+			OnLoad = function()
+				setPendingLoadId(preset.id)
 			end,
 			OnDelete = function()
 				controller:removePreset(preset.id)
@@ -233,7 +272,7 @@ local function PresetsList(props: Props)
 			}),
 		}),
 
-		Overlay = isDialogOpen and React.createElement("ImageButton", {
+		Overlay = (isDialogOpen or pendingLoadPreset ~= nil) and React.createElement("ImageButton", {
 			BorderSizePixel = 0,
 			BackgroundTransparency = 0.7,
 			BackgroundColor3 = Color3.new(0, 0, 0),
@@ -241,7 +280,7 @@ local function PresetsList(props: Props)
 			AutoButtonColor = false,
 			Image = "",
 		}, {
-			Dialog = React.createElement(PresetDialog, {
+			AddDialog = isDialogOpen and React.createElement(PresetDialog, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromOffset(220, 90),
@@ -256,6 +295,27 @@ local function PresetsList(props: Props)
 
 				OnCancel = function()
 					setIsDialogOpen(false)
+				end,
+			}),
+
+			ConfirmDialog = pendingLoadPreset ~= nil and React.createElement(ConfirmDialog, {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(240, 110),
+
+				Message = `Load "{pendingLoadPreset.name}"?\n\nThis replaces your current layers and effects.`,
+				ConfirmText = "Load",
+
+				OnConfirm = function()
+					local presetId = pendingLoadId
+					setPendingLoadId(nil :: any)
+					if presetId ~= nil then
+						controller:applyPreset(presetId)
+					end
+				end,
+
+				OnCancel = function()
+					setPendingLoadId(nil :: any)
 				end,
 			}),
 		}),
