@@ -33,6 +33,7 @@ type PresetRowProps = {
 	Name: string,
 	LayoutOrder: number,
 	Disabled: boolean?,
+	IsDefault: boolean?,
 	OnApply: () -> (),
 	OnDelete: () -> (),
 }
@@ -90,7 +91,9 @@ local function PresetRow(props: PresetRowProps)
 			LayoutOrder = 1,
 		}),
 
-		Delete = React.createElement(LucideIconButton, {
+		-- Default presets are permanent, so they show no delete affordance. The title still
+		-- reserves the button's width so default and user rows stay column-aligned.
+		Delete = not props.IsDefault and React.createElement(LucideIconButton, {
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.fromScale(0, 0.5),
 			Size = UDim2.fromOffset(24, 24),
@@ -116,6 +119,7 @@ local function PresetsList(props: Props)
 			Name = preset.name,
 			LayoutOrder = order,
 			Disabled = props.Disabled,
+			IsDefault = preset.isDefault,
 
 			OnApply = function()
 				controller:applyPreset(preset.id)

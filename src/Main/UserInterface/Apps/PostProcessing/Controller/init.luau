@@ -8,6 +8,7 @@ local Trove = require(pluginRoot.Packages.Trove)
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Effects = require(postProcessingRoot.Effects)
 
+local Presets = require(script.Presets)
 local LayerComposer = require(script.LayerComposer)
 local SignedVectorField = require(script.SignedVectorField)
 local IntegralImage = require(script.IntegralImage)
@@ -15,7 +16,7 @@ local IntegralImage = require(script.IntegralImage)
 -- Types
 
 -- A composited render output, one per visible layer (its effects + base image
--- flattened and colour-graded into a single image), consumed by the ImageViewer and
+-- flattened and color-graded into a single image), consumed by the ImageViewer and
 -- LayerComposer.
 export type RenderLayer = LayerComposer.Layer
 
@@ -35,7 +36,7 @@ export type LayerEffect = {
 }
 
 -- The editable model: a layer is an image source (carrying its own offset/tint/
--- transparency, plus a colour grade applied to its whole composited output) that owns
+-- transparency, plus a color grade applied to its whole composited output) that owns
 -- an ordered list of sub-effects.
 export type Layer = {
 	id: string,
@@ -53,10 +54,12 @@ export type Layer = {
 	effects: { LayerEffect },
 }
 
--- A saved snapshot of a whole layer stack.
+-- A saved snapshot of a whole layer stack. Built-in presets are flagged `isDefault` and
+-- cannot be deleted.
 export type Preset = {
 	id: string,
 	name: string,
+	isDefault: boolean,
 	layers: { Layer },
 }
 
@@ -143,6 +146,48 @@ local function copyLayers(layers: { Layer }): { Layer }
 	return out
 end
 
+local function buildDefaultPreset(spec: Presets.PresetSpec)
+	local layers: { Layer } = {}
+	for _, layerSpec in spec.layers do
+		local layer = makeLayer(layerSpec.name or "Image")
+		-- `or` is safe here because the optional numeric fields default to non-falsy values
+		-- (0 is truthy in Luau), so an explicit 0/negative override is still honoured.
+		layer.tintColor = layerSpec.tintColor or layer.tintColor
+		layer.transparency = layerSpec.transparency or layer.transparency
+		layer.brightness = layerSpec.brightness or layer.brightness
+		layer.contrast = layerSpec.contrast or layer.contrast
+		layer.saturation = layerSpec.saturation or layer.saturation
+		layer.hue = layerSpec.hue or layer.hue
+
+		local effectSpecs: { Presets.EffectSpec } = layerSpec.effects or {}
+		for _, effectSpec in effectSpecs do
+			local item = makeLayerEffect(effectSpec.kind, effectSpec.name or effectSpec.kind)
+			local overrides: { [string]: any } = effectSpec.properties or {}
+			for key, value in overrides do
+				item.effect.properties[key] = value
+			end
+			table.insert(layer.effects, item)
+		end
+
+		table.insert(layers, layer)
+	end
+
+	return {
+		id = nextId(),
+		name = spec.name,
+		isDefault = true,
+		layers = layers,
+	} :: Preset
+end
+
+local function buildDefaultPresets()
+	local presets: { Preset } = {}
+	for _, presetEntry in Presets.get() do
+		table.insert(presets, buildDefaultPreset(presetEntry.spec))
+	end
+	return presets
+end
+
 -- Returns a new layers array with `fn` applied to the layer matching `layerId`.
 local function mapLayer(layers: { Layer }, layerId: string, fn: (Layer) -> Layer): { Layer }
 	local out = table.clone(layers)
@@ -204,7 +249,7 @@ function PostProcessingControllerStatic.new()
 	self.observableThumbnails = ObservableValue.new({} :: { [string]: EditableImage })
 	self.observableLayers = ObservableValue.new({ makeLayer("Image") })
 	self.observableComposited = ObservableValue.new({})
-	self.observablePresets = ObservableValue.new({} :: { Preset })
+	self.observablePresets = ObservableValue.new(buildDefaultPresets())
 
 	return self
 end
@@ -509,6 +554,7 @@ function PostProcessingControllerClass.addPreset(self: PostProcessingController,
 	local preset: Preset = {
 		id = nextId(),
 		name = name or `Preset {#self.observablePresets:get() + 1}`,
+		isDefault = false,
 		layers = copyLayers(self.observableLayers:get()),
 	}
 	self.observablePresets:update()(function(presets)
@@ -519,13 +565,14 @@ function PostProcessingControllerClass.addPreset(self: PostProcessingController,
 	return preset.id
 end
 
+-- Removes a user preset. Default presets are permanent and silently ignored.
 function PostProcessingControllerClass.removePreset(self: PostProcessingController, presetId: string)
 	self.observablePresets:update()(function(presets)
 		local out = table.clone(presets)
 		local i = indexOf(out, function(preset)
 			return preset.id == presetId
 		end)
-		if i then
+		if i and not out[i].isDefault then
 			table.remove(out, i)
 		end
 		return out
