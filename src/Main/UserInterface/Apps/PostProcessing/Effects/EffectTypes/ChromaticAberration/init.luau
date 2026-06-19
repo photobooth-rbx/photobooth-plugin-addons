@@ -17,12 +17,11 @@ local scheduler = Parallel.new(32, {
 
 return EffectsRegistry.register("Chromatic Aberration", {
 	playerCreated = true,
-	-- Re-renders the subject's own colours, so it composites over the base image.
-	renderAboveBase = true,
+	renderAboveBase = false,
 	create = function()
 		local properties: Properties = {
-			strength = 3,
-			angle = 0,
+			strength = 6,
+			angle = 45,
 			offset = Vector2.zero,
 			transparency = 0,
 			color = Color3.new(1, 1, 1),
