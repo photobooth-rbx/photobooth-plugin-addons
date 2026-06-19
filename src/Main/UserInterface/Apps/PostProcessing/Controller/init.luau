@@ -8,6 +8,8 @@ local Trove = require(pluginRoot.Packages.Trove)
 local postProcessingRoot = script:FindFirstAncestor("PostProcessing")
 local Effects = require(postProcessingRoot.Effects)
 
+local PluginSave = require(pluginRoot.Main.PluginSave)
+
 local Presets = require(script.Presets)
 local LayerComposer = require(script.LayerComposer)
 local SignedVectorField = require(script.SignedVectorField)
@@ -248,7 +250,13 @@ function PostProcessingControllerStatic.new()
 	self.observableThumbnails = ObservableValue.new({} :: { [string]: { RenderLayer } })
 	self.observableLayers = ObservableValue.new({ makeLayer("Image") })
 	self.observableComposited = ObservableValue.new({})
-	self.observablePresets = ObservableValue.new(buildDefaultPresets())
+
+	local presets = buildDefaultPresets()
+	for _, savedPreset in PluginSave.read().presets do
+		table.insert(presets, savedPreset)
+	end
+
+	self.observablePresets = ObservableValue.new(presets)
 
 	return self
 end
@@ -548,6 +556,21 @@ function PostProcessingControllerClass.usePresets(self: PostProcessingController
 	return self.observablePresets:use()
 end
 
+function PostProcessingControllerClass.persistUserPresets(self: PostProcessingController)
+	local filtered = {}
+	for _, preset in self.observablePresets:get() do
+		if not preset.isDefault then
+			table.insert(filtered, preset)
+		end
+	end
+
+	PluginSave.mutate(function(deserialized)
+		local clone = table.clone(deserialized)
+		clone.presets = filtered
+		return clone
+	end)
+end
+
 -- Snapshots the current layer stack into a new preset.
 function PostProcessingControllerClass.addPreset(self: PostProcessingController, name: string?): string
 	local preset: Preset = {
@@ -556,11 +579,15 @@ function PostProcessingControllerClass.addPreset(self: PostProcessingController,
 		isDefault = false,
 		layers = copyLayers(self.observableLayers:get()),
 	}
+
 	self.observablePresets:update()(function(presets)
 		local out = table.clone(presets)
 		table.insert(out, preset)
 		return out
 	end)
+
+	self:persistUserPresets()
+
 	return preset.id
 end
 
@@ -576,6 +603,7 @@ function PostProcessingControllerClass.removePreset(self: PostProcessingControll
 		end
 		return out
 	end)
+	self:persistUserPresets()
 end
 
 -- Replaces the current layer stack with a fresh copy of the preset's snapshot.

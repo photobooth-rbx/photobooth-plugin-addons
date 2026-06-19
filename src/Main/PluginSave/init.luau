@@ -1,5 +1,9 @@
+local EncodingService = game:GetService("EncodingService")
+
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Bufferize = require(pluginRoot.Packages.Bufferize)
+
+local SETTING_KEY = "egomoose_photobooth_addon"
 
 local SaveVersions = require(script.SaveVersions)
 
@@ -19,16 +23,19 @@ function PluginSave.mutate(mutation: (SaveVersions.Deserialized) -> SaveVersions
 end
 
 function PluginSave.setup(plugin: Plugin)
-	local pluginSetting = plugin:GetSetting("egomoose_photobooth_addon")
+	local pluginSetting = plugin:GetSetting(SETTING_KEY) :: string?
 	if pluginSetting then
-		local decodedSave = Bufferize.decode(pluginSetting)
-		currentDeserialized = SaveVersions.load(decodedSave)
+		pcall(function()
+			local encoded = EncodingService:Base64Decode(buffer.fromstring(pluginSetting))
+			local decodedSave = Bufferize.decode(encoded)
+			currentDeserialized = SaveVersions.load(decodedSave)
+		end)
 	end
 
 	plugin.Unloading:Connect(function()
 		local save = SaveVersions.save(currentDeserialized)
-		local encoded = Bufferize.encode(save)
-		plugin:SetSetting("egomoose_photobooth_addon", encoded)
+		local encoded = EncodingService:Base64Encode(Bufferize.encode(save))
+		plugin:SetSetting(SETTING_KEY, buffer.tostring(encoded))
 	end)
 end
 
