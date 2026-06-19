@@ -1,9 +1,9 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
+local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
 
 local effectsRoot = script:FindFirstAncestor("Effects")
 local EffectsRegistry = require(effectsRoot.EffectsRegistry)
-local EffectsHelper = require(effectsRoot.EffectsHelper)
 
 local Worker = require(script.Worker)
 
@@ -39,9 +39,9 @@ return EffectsRegistry.register("Chromatic Aberration", {
 		-- shows through untouched (this effect sits above it).
 		if properties.strength > 0 then
 			local region = Rect.new(0, 0, imgWidth, imgHeight)
-			local slices = EffectsHelper.sliceIntoStrips(region, scheduler:getActorCount())
-			for _, slice in slices do
-				scheduler:schedule(inputs, properties, slice)
+			local rows = RegionSlicer.rows(region, scheduler:getActorCount())
+			for _, rowRect in rows do
+				scheduler:schedule(inputs, properties, rowRect)
 			end
 
 			local offset = 0

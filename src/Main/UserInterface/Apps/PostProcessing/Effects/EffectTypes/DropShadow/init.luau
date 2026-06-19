@@ -1,9 +1,9 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
+local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
 
 local effectsRoot = script:FindFirstAncestor("Effects")
 local EffectsRegistry = require(effectsRoot.EffectsRegistry)
-local EffectsHelper = require(effectsRoot.EffectsHelper)
 
 type HorizontalAction = typeof(require(script.HorizontalWorker))
 type VerticalAction = typeof(require(script.VerticalWorker))
@@ -54,9 +54,9 @@ return EffectsRegistry.register("Drop Shadow", {
 		local region = Rect.new(0, 0, imgWidth, imgHeight)
 
 		-- Pass 1: dilate + horizontal mean -> scratch (stitched from contiguous row strips).
-		local rowStrips = EffectsHelper.sliceIntoStrips(region, horizontalScheduler:getActorCount())
-		for _, strip in rowStrips do
-			horizontalScheduler:schedule(inputs.svf, properties.spread, properties.blur, strip)
+		local rows = RegionSlicer.rows(region, horizontalScheduler:getActorCount())
+		for _, rowRect in rows do
+			horizontalScheduler:schedule(inputs.svf, properties.spread, properties.blur, rowRect)
 		end
 
 		local stitched = buffer.create(imgWidth * imgHeight * 4)
@@ -72,8 +72,8 @@ return EffectsRegistry.register("Drop Shadow", {
 		-- contiguously, so each result is blitted into the output at its own x-origin.
 		local offX = math.floor(properties.shadowOffset.X)
 		local offY = math.floor(properties.shadowOffset.Y)
-		local colStrips = EffectsHelper.sliceIntoColumns(region, verticalScheduler:getActorCount())
-		for _, strip in colStrips do
+		local columns = RegionSlicer.columns(region, verticalScheduler:getActorCount())
+		for _, columnRect in columns do
 			verticalScheduler:schedule(
 				inputs.scratch,
 				inputs.svf,
@@ -81,15 +81,19 @@ return EffectsRegistry.register("Drop Shadow", {
 				offX,
 				offY,
 				properties.clipped,
-				strip
+				columnRect
 			)
 		end
 
 		for i, getBuffer in verticalScheduler:workAsync() do
-			local strip = colStrips[i]
-			local stripMin = strip.Min
-			local stripWidth = strip.Max.X - strip.Min.X
-			inputs.output:WritePixelsBuffer(Vector2.new(stripMin.X, 0), Vector2.new(stripWidth, imgHeight), getBuffer())
+			local columnRect = columns[i]
+			local columnRectMin = columnRect.Min
+			local columnRectWidth = columnRect.Max.X - columnRect.Min.X
+			inputs.output:WritePixelsBuffer(
+				Vector2.new(columnRectMin.X, 0),
+				Vector2.new(columnRectWidth, imgHeight),
+				getBuffer()
+			)
 		end
 	end,
 })

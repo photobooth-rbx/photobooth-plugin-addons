@@ -5,17 +5,7 @@ function EffectsHelper.smoothStep(edge0: number, edge1: number, x: number)
 	return t * t * (3.0 - 2.0 * t)
 end
 
--- Bilinearly sample an RGBA8 buffer at a fractional coordinate, returning straight-alpha
--- `r, g, b` (0-255) and `a` (0-255). Sampling is premultiplied internally so blending across
--- the subject's transparent border doesn't drag colour toward black (the classic dark halo);
--- texels outside the image are treated as fully transparent, so samples fade off-canvas.
-function EffectsHelper.sampleBilinearRGBA(
-	img: buffer,
-	width: number,
-	height: number,
-	fx: number,
-	fy: number
-): (number, number, number, number)
+function EffectsHelper.sampleBilinearRGBA(img: buffer, width: number, height: number, fx: number, fy: number)
 	local x0 = math.floor(fx)
 	local y0 = math.floor(fy)
 	local tx = fx - x0
@@ -40,10 +30,12 @@ function EffectsHelper.sampleBilinearRGBA(
 		end
 	end
 
+	local a, b, c, d = 0, 0, 0, 0
 	if pa > 0 then
-		return pr / pa, pg / pa, pb / pa, pa * 255
+		a, b, c, d = pr / pa, pg / pa, pb / pa, pa * 255
 	end
-	return 0, 0, 0, 0
+
+	return a, b, c, d
 end
 
 function EffectsHelper.readSignedDistance(svf: buffer, width: number, x: number, y: number)
@@ -79,7 +71,7 @@ function EffectsHelper.boxAverageAlpha(
 	x: number,
 	y: number,
 	radius: number
-): number
+)
 	local minX, minY = x - radius, y - radius
 	local maxX, maxY = x + radius, y + radius
 
@@ -95,46 +87,6 @@ function EffectsHelper.boxAverageAlpha(
 	local count = (cMaxX - cMinX + 1) * (cMaxY - cMinY + 1)
 
 	return sum / (count * 255)
-end
-
-function EffectsHelper.sliceIntoStrips(region: Rect, nSlices: number)
-	local width = region.Max.X - region.Min.X
-	local height = region.Max.Y - region.Min.Y
-	local x0 = region.Min.X
-	local y0 = region.Min.Y
-
-	nSlices = math.max(1, math.min(nSlices, height))
-
-	local regions = {}
-	local stepY = math.floor(height / nSlices)
-	for dy = 1, nSlices do
-		local subY0 = y0 + (dy - 1) * stepY
-		local subY1 = if dy == nSlices then y0 + height else y0 + dy * stepY
-		table.insert(regions, Rect.new(x0, subY0, x0 + width, subY1))
-	end
-
-	return regions
-end
-
--- Like `sliceIntoStrips`, but splits the region into full-height vertical columns. Used by
--- passes that run a per-column scan (e.g. the vertical leg of a separable box blur).
-function EffectsHelper.sliceIntoColumns(region: Rect, nSlices: number)
-	local width = region.Max.X - region.Min.X
-	local height = region.Max.Y - region.Min.Y
-	local x0 = region.Min.X
-	local y0 = region.Min.Y
-
-	nSlices = math.max(1, math.min(nSlices, width))
-
-	local regions = {}
-	local stepX = math.floor(width / nSlices)
-	for dx = 1, nSlices do
-		local subX0 = x0 + (dx - 1) * stepX
-		local subX1 = if dx == nSlices then x0 + width else x0 + dx * stepX
-		table.insert(regions, Rect.new(subX0, y0, subX1, y0 + height))
-	end
-
-	return regions
 end
 
 return EffectsHelper

@@ -3,6 +3,7 @@ local AssetService = game:GetService("AssetService")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
 local Cancellation = require(pluginRoot.Utilities.Cancellation)
+local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
 
 local IntegralImage = {}
 
@@ -21,48 +22,24 @@ local verticalScheduler = Parallel.new(32, {
 	typecast = (nil :: any) :: VerticalWorker,
 })
 
-local function sliceIntoStrips(size: Vector2, xSlices: number, ySlices: number)
-	local strips = {}
-	local width, height = size.X, size.Y
-
-	xSlices = math.max(1, math.min(xSlices, width))
-	ySlices = math.max(1, math.min(ySlices, height))
-
-	local stepY = math.floor(height / ySlices)
-	local stepX = math.floor(width / xSlices)
-	for dy = 1, ySlices do
-		for dx = 1, xSlices do
-			local subY0 = (dy - 1) * stepY
-			local subY1 = if dy == ySlices then height else dy * stepY
-
-			local subX0 = (dx - 1) * stepX
-			local subX1 = if dx == xSlices then width else dx * stepX
-
-			table.insert(strips, Rect.new(subX0, subY0, subX1, subY1))
-		end
-	end
-
-	return strips
-end
-
-local function computeInto(source: EditableImage, integralEdit: EditableImage, token: Cancellation.CancelToken?)
+local function computeInto(source: EditableImage, integralEdit: EditableImage, token: Cancellation.CancelToken)
 	local size = source.Size
 	local width, height = size.X, size.Y
+	local sourceRegion = Rect.new(0, 0, width, height)
 
 	horizontalScheduler:waitForReady()
-	local unhookHorizontal = token and token:onCancel(function()
+	local unhookHorizontal = token:onCancel(function()
 		horizontalScheduler:cancelWork()
 	end)
 
-	local horizontalStrips = sliceIntoStrips(size, 1, horizontalScheduler:getActorCount())
-	for _, strip in horizontalStrips do
-		horizontalScheduler:schedule(source, 3, strip)
+	local rows = RegionSlicer.rows(sourceRegion, horizontalScheduler:getActorCount())
+	for _, rowRect in rows do
+		horizontalScheduler:schedule(source, 3, rowRect)
 	end
 
 	local results, horizontalCancelled = horizontalScheduler:workAsync()
-	if unhookHorizontal then
-		unhookHorizontal()
-	end
+	unhookHorizontal()
+
 	if horizontalCancelled then
 		return false
 	end
@@ -81,15 +58,13 @@ local function computeInto(source: EditableImage, integralEdit: EditableImage, t
 		verticalScheduler:cancelWork()
 	end)
 
-	local verticalStrips = sliceIntoStrips(size, verticalScheduler:getActorCount(), 1)
-	for _, strip in verticalStrips do
-		verticalScheduler:schedule(integralEdit, strip)
+	local columns = RegionSlicer.columns(sourceRegion, verticalScheduler:getActorCount())
+	for _, columnRect in columns do
+		verticalScheduler:schedule(integralEdit, columnRect)
 	end
 
 	local _, verticalCancelled = verticalScheduler:workAsync()
-	if unhookVertical then
-		unhookVertical()
-	end
+	unhookVertical()
 	if verticalCancelled then
 		return false
 	end
@@ -126,8 +101,6 @@ function IntegralImage.generate(content: Content)
 		return integralEdit
 	end)
 end
-
--- Private
 
 --
 
