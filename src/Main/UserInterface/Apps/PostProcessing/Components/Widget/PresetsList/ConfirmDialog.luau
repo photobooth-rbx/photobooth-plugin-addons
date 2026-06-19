@@ -7,6 +7,7 @@ export type Props = {
 	Position: UDim2?,
 	Size: UDim2?,
 
+	RichText: boolean?,
 	Message: string,
 	ConfirmText: string?,
 
@@ -43,6 +44,7 @@ local function ConfirmDialog(props: Props)
 			BackgroundTransparency = 1,
 			Size = UDim2.new(1, 0, 1, -30),
 			FontFace = Font.fromName("SourceSansPro"),
+			RichText = props.RichText,
 			Text = props.Message,
 			TextSize = 14,
 			TextWrapped = true,

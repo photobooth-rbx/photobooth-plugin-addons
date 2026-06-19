@@ -303,7 +303,8 @@ local function PresetsList(props: Props)
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromOffset(240, 110),
 
-				Message = `Load "{pendingLoadPreset.name}"?\n\nThis replaces your current layers and effects.`,
+				RichText = true,
+				Message = `<b>Load "{pendingLoadPreset.name}"?</b>\n\nThis replaces your current layers and effects.`,
 				ConfirmText = "Load",
 
 				OnConfirm = function()
