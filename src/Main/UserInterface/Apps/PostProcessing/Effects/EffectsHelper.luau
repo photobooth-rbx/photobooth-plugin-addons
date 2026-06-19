@@ -5,6 +5,47 @@ function EffectsHelper.smoothStep(edge0: number, edge1: number, x: number)
 	return t * t * (3.0 - 2.0 * t)
 end
 
+-- Bilinearly sample an RGBA8 buffer at a fractional coordinate, returning straight-alpha
+-- `r, g, b` (0-255) and `a` (0-255). Sampling is premultiplied internally so blending across
+-- the subject's transparent border doesn't drag colour toward black (the classic dark halo);
+-- texels outside the image are treated as fully transparent, so samples fade off-canvas.
+function EffectsHelper.sampleBilinearRGBA(
+	img: buffer,
+	width: number,
+	height: number,
+	fx: number,
+	fy: number
+): (number, number, number, number)
+	local x0 = math.floor(fx)
+	local y0 = math.floor(fy)
+	local tx = fx - x0
+	local ty = fy - y0
+
+	local pr, pg, pb, pa = 0, 0, 0, 0
+	for dy = 0, 1 do
+		local wy = if dy == 0 then 1 - ty else ty
+		local sy = y0 + dy
+		for dx = 0, 1 do
+			local wx = if dx == 0 then 1 - tx else tx
+			local sx = x0 + dx
+			local w = wx * wy
+			if w > 0 and sx >= 0 and sx < width and sy >= 0 and sy < height then
+				local j = (sx + sy * width) * 4
+				local a = buffer.readu8(img, j + 3) / 255
+				pr += buffer.readu8(img, j + 0) * a * w
+				pg += buffer.readu8(img, j + 1) * a * w
+				pb += buffer.readu8(img, j + 2) * a * w
+				pa += a * w
+			end
+		end
+	end
+
+	if pa > 0 then
+		return pr / pa, pg / pa, pb / pa, pa * 255
+	end
+	return 0, 0, 0, 0
+end
+
 function EffectsHelper.readSignedDistance(svf: buffer, width: number, x: number, y: number)
 	local i = x + (y - 1) * width
 	local j = (i - 1) * 4
