@@ -154,12 +154,12 @@ local function LayerProperties(props: {
 			FieldName = "Contrast",
 			Min = -1,
 			Max = 1,
-			Value = selectedLayer.contrast - 1,
+			Value = selectedLayer.contrast,
 			Disabled = props.Disabled,
 			LayoutOrder = 7,
 
 			OnValueSubmitted = function(newValue)
-				controller:setLayerContrast(layerId, newValue + 1)
+				controller:setLayerContrast(layerId, newValue)
 			end,
 		}),
 
@@ -167,12 +167,12 @@ local function LayerProperties(props: {
 			FieldName = "Saturation",
 			Min = -1,
 			Max = 1,
-			Value = selectedLayer.saturation - 1,
+			Value = selectedLayer.saturation,
 			Disabled = props.Disabled,
 			LayoutOrder = 8,
 
 			OnValueSubmitted = function(newValue)
-				controller:setLayerSaturation(layerId, newValue + 1)
+				controller:setLayerSaturation(layerId, newValue)
 			end,
 		}),
 

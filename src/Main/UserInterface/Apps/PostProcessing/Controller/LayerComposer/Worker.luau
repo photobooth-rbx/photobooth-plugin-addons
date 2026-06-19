@@ -25,7 +25,7 @@ local function worker(layers: { Types.Layer }, crop: Rect, fullSize: Vector2, ad
 	local m10, m11, m12 = 0, 1, 0
 	local m20, m21, m22 = 0, 0, 1
 	if adjust then
-		brightness, contrast, saturation = adjust.brightness, adjust.contrast, adjust.saturation
+		brightness, contrast, saturation = adjust.brightness, adjust.contrast + 1, adjust.saturation + 1
 		local h = math.rad(adjust.hue)
 		local U, W = math.cos(h), math.sin(h)
 		m00, m01, m02 = LR + U * (1 - LR) - W * LR, LG - U * LG - W * LG, LB - U * LB + W * (1 - LB)

@@ -6,7 +6,7 @@ return PresetRegistry.register("blackWhite", {
 	layers = {
 		{
 			name = "Black & White",
-			saturation = 0,
+			saturation = -1,
 		},
 	},
 })

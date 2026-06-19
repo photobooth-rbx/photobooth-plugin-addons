@@ -98,8 +98,8 @@ local function makeLayer(name: string): Layer
 		tintColor = Color3.new(1, 1, 1),
 		transparency = 0,
 		brightness = 0,
-		contrast = 1,
-		saturation = 1,
+		contrast = 0,
+		saturation = 0,
 		hue = 0,
 		effects = {},
 	}
@@ -793,7 +793,7 @@ function PostProcessingControllerClass.loadImageAsync(self: PostProcessingContro
 					table.insert(layerRenderLayers, e)
 				end
 
-				local hasGrade = layer.brightness ~= 0 or layer.contrast ~= 1 or layer.saturation ~= 1 or layer.hue ~= 0
+				local hasGrade = layer.brightness ~= 0 or layer.contrast ~= 0 or layer.saturation ~= 0 or layer.hue ~= 0
 
 				seenLayers[layer.id] = true
 
