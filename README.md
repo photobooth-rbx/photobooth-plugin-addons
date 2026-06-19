@@ -28,8 +28,13 @@ This property determines how the camera should behave when focusing on a capture
 
 Any capture targets with animators can have an animation applied by pasting an animation id to the animation instance in the camera. This will bring up a playback bar that can be used to set the exact frame as desired.
 
+https://github.com/user-attachments/assets/6ea3aeb8-7cf8-453d-b913-ebcb7741fdf1
+
 ## Post-processing
 
 The post-processing tool is designed to help add common effects to captures without the need for external tools like photoshop, etc. Open the widget and select captures in the explorer. From there you can define how you want to process the image by using layers and effects.
 
 Some built-in presets are provided to get you started, but you can always save your own!
+
+https://github.com/user-attachments/assets/867f403b-c3f1-4231-a203-8239497b56b1
+
