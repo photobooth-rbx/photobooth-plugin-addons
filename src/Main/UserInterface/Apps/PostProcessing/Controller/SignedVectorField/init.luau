@@ -3,8 +3,10 @@ local AssetService = game:GetService("AssetService")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Cancellation = require(pluginRoot.Utilities.Cancellation)
 
-local PLUS_ONE = true
 local ACTOR_COUNT = 32
+
+local PLUS_ONE = true
+local INSIDE_THRESHOLD = 127.5
 
 script:SetAttribute("PlusOne", PLUS_ONE)
 script:SetAttribute("ActorCount", ACTOR_COUNT)
@@ -50,7 +52,7 @@ function SignedVectorField.generate(content: Content)
 			local fullRegion = Rect.new(0, 0, imgSize.X, imgSize.Y)
 			local plantRegions = sliceIntoStrips(fullRegion, ACTOR_COUNT)
 
-			PlantSeeds(imgEdit, voronoiEdit, plantRegions, token)
+			PlantSeeds(imgEdit, voronoiEdit, plantRegions, INSIDE_THRESHOLD, token)
 			if not token:isCancelled() then
 				JFAPasses(voronoiEdit, plantRegions, token)
 			end

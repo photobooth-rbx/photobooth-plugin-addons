@@ -1,7 +1,7 @@
 --!optimize 2
 
 @native
-local function worker(img: EditableImage, crop: Rect)
+local function worker(img: EditableImage, crop: Rect, insideThreshold: number)
 	local imgSize = img.Size
 	local imgWidth, _imgHeight = imgSize.X, imgSize.Y
 	local imgBuffer = img:ReadPixelsBuffer(Vector2.zero, imgSize)
@@ -24,7 +24,7 @@ local function worker(img: EditableImage, crop: Rect)
 			local cj = (ci - 1) * 4
 
 			local alpha = buffer.readu8(imgBuffer, j + 3)
-			if alpha > 0 then
+			if alpha > insideThreshold then
 				buffer.writei32(seedBuffer, cj, i)
 			else
 				buffer.writei32(seedBuffer, cj, -i)

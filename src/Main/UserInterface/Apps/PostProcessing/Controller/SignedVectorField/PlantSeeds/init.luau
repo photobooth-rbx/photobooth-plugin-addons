@@ -10,6 +10,7 @@ local function plantSeeds(
 	img: EditableImage,
 	voronoi: EditableImage,
 	regions: { Rect },
+	insideThreshold: number,
 	token: Cancellation.CancelToken
 )
 	local scheduler = Parallel.new(ACTOR_COUNT, {
@@ -28,7 +29,7 @@ local function plantSeeds(
 	local imgWidth, imgHeight = imgSize.X, imgSize.Y
 
 	for _, crop in regions do
-		scheduler:schedule(img, crop)
+		scheduler:schedule(img, crop, insideThreshold)
 	end
 
 	local results, workCancelled = scheduler:workAsync()
