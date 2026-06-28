@@ -1,6 +1,6 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
-local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
+local RectSlicer = require(pluginRoot.Utilities.RectSlicer)
 
 local effectsRoot = script:FindFirstAncestor("Effects")
 local EffectsRegistry = require(effectsRoot.EffectsRegistry)
@@ -37,7 +37,7 @@ return EffectsRegistry.register("Outer Glow", {
 
 		if properties.size > 0 then
 			local region = Rect.new(0, 0, imgWidth, imgHeight)
-			local rows = RegionSlicer.rows(region, scheduler:getActorCount())
+			local rows = RectSlicer.rows(region, scheduler:getActorCount())
 			for _, rowRect in rows do
 				scheduler:schedule(inputs, properties, rowRect)
 			end

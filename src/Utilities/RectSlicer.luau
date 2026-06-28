@@ -1,6 +1,6 @@
-local RegionSlicer = {}
+local RectSlicer = {}
 
-function RegionSlicer.chunks(region: Rect, xSlices: number, ySlices: number)
+function RectSlicer.chunks(region: Rect, xSlices: number, ySlices: number)
 	local width = region.Max.X - region.Min.X
 	local height = region.Max.Y - region.Min.Y
 	local x0 = region.Min.X
@@ -27,12 +27,12 @@ function RegionSlicer.chunks(region: Rect, xSlices: number, ySlices: number)
 	return chunks
 end
 
-function RegionSlicer.rows(region: Rect, nRows: number)
-	return RegionSlicer.chunks(region, 1, nRows)
+function RectSlicer.rows(region: Rect, nRows: number)
+	return RectSlicer.chunks(region, 1, nRows)
 end
 
-function RegionSlicer.columns(region: Rect, nColumns: number)
-	return RegionSlicer.chunks(region, nColumns, 1)
+function RectSlicer.columns(region: Rect, nColumns: number)
+	return RectSlicer.chunks(region, nColumns, 1)
 end
 
-return RegionSlicer
+return RectSlicer

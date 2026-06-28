@@ -1,6 +1,6 @@
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
-local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
+local RectSlicer = require(pluginRoot.Utilities.RectSlicer)
 
 local effectsRoot = script:FindFirstAncestor("Effects")
 local EffectsRegistry = require(effectsRoot.EffectsRegistry)
@@ -54,7 +54,7 @@ return EffectsRegistry.register("Drop Shadow", {
 		local region = Rect.new(0, 0, imgWidth, imgHeight)
 
 		-- Pass 1: dilate + horizontal mean -> scratch (stitched from contiguous row strips).
-		local rows = RegionSlicer.rows(region, horizontalScheduler:getActorCount())
+		local rows = RectSlicer.rows(region, horizontalScheduler:getActorCount())
 		for _, rowRect in rows do
 			horizontalScheduler:schedule(inputs.svf, properties.spread, properties.blur, rowRect)
 		end
@@ -72,7 +72,7 @@ return EffectsRegistry.register("Drop Shadow", {
 		-- contiguously, so each result is blitted into the output at its own x-origin.
 		local offX = math.floor(properties.shadowOffset.X)
 		local offY = math.floor(properties.shadowOffset.Y)
-		local columns = RegionSlicer.columns(region, verticalScheduler:getActorCount())
+		local columns = RectSlicer.columns(region, verticalScheduler:getActorCount())
 		for _, columnRect in columns do
 			verticalScheduler:schedule(
 				inputs.scratch,

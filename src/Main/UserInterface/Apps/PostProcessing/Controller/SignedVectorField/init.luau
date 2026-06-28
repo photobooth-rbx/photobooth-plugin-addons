@@ -2,7 +2,7 @@ local AssetService = game:GetService("AssetService")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Cancellation = require(pluginRoot.Utilities.Cancellation)
-local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
+local RectSlicer = require(pluginRoot.Utilities.RectSlicer)
 
 local ACTOR_COUNT = 32
 
@@ -32,7 +32,7 @@ function SignedVectorField.generate(content: Content)
 		local success, err: string? = pcall(function()
 			local imgSize = imgEdit.Size
 			local fullRegion = Rect.new(0, 0, imgSize.X, imgSize.Y)
-			local rows = RegionSlicer.rows(fullRegion, ACTOR_COUNT)
+			local rows = RectSlicer.rows(fullRegion, ACTOR_COUNT)
 
 			PlantSeeds(imgEdit, voronoiEdit, rows, INSIDE_THRESHOLD, token)
 			if not token:isCancelled() then

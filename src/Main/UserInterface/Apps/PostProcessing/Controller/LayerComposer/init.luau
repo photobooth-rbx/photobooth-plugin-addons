@@ -2,7 +2,7 @@ local AssetService = game:GetService("AssetService")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
-local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
+local RectSlicer = require(pluginRoot.Utilities.RectSlicer)
 
 local Types = require(script.Types)
 
@@ -25,7 +25,7 @@ function LayerComposer.composeAsync(editImage: EditableImage, layers: { Layer },
 	local imgWidth, imgHeight = imgSize.X, imgSize.Y
 	local fullRegion = Rect.new(0, 0, imgWidth, imgHeight)
 
-	local rows = RegionSlicer.rows(fullRegion, scheduler:getActorCount())
+	local rows = RectSlicer.rows(fullRegion, scheduler:getActorCount())
 	for _, rowRect in rows do
 		scheduler:schedule(layers, rowRect, imgSize, adjustment)
 	end

@@ -3,7 +3,7 @@ local AssetService = game:GetService("AssetService")
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
 local Cancellation = require(pluginRoot.Utilities.Cancellation)
-local RegionSlicer = require(pluginRoot.Utilities.RegionSlicer)
+local RectSlicer = require(pluginRoot.Utilities.RectSlicer)
 
 local IntegralImage = {}
 
@@ -32,7 +32,7 @@ local function computeInto(source: EditableImage, integralEdit: EditableImage, t
 		horizontalScheduler:cancelWork()
 	end)
 
-	local rows = RegionSlicer.rows(sourceRegion, horizontalScheduler:getActorCount())
+	local rows = RectSlicer.rows(sourceRegion, horizontalScheduler:getActorCount())
 	for _, rowRect in rows do
 		horizontalScheduler:schedule(source, 3, rowRect)
 	end
@@ -58,7 +58,7 @@ local function computeInto(source: EditableImage, integralEdit: EditableImage, t
 		verticalScheduler:cancelWork()
 	end)
 
-	local columns = RegionSlicer.columns(sourceRegion, verticalScheduler:getActorCount())
+	local columns = RectSlicer.columns(sourceRegion, verticalScheduler:getActorCount())
 	for _, columnRect in columns do
 		verticalScheduler:schedule(integralEdit, columnRect)
 	end
