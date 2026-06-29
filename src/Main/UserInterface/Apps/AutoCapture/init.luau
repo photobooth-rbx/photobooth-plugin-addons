@@ -62,7 +62,7 @@ local function appComponent(_props: {})
 	local dynamic = controller.dynamicObservableState:use()
 
 	local captureRect, setCaptureRect = React.useState(Rect.new(0, 0, 0, 0))
-	local disabled, setDisabled = React.useState(false)
+	local cancelledRef = React.useRef(false)
 
 	React.useEffect(function()
 		return function()
@@ -79,7 +79,7 @@ local function appComponent(_props: {})
 	return React.createElement(React.Fragment, nil, {
 		Widget = React.createElement(Widget, {
 			OnCapture = function()
-				setDisabled(true)
+				cancelledRef.current = false
 
 				local success, err: string? = pcall(function()
 					assert(Photobooth.isConnected(), "Photobooth not detected.")
@@ -104,11 +104,9 @@ local function appComponent(_props: {})
 				if not success then
 					warn(err)
 				end
-
-				setDisabled(false)
 			end,
 			OnCaptureAll = function()
-				setDisabled(true)
+				cancelledRef.current = false
 
 				local success, err: string? = pcall(function()
 					assert(Photobooth.isConnected(), "Photobooth not detected.")
@@ -119,6 +117,10 @@ local function appComponent(_props: {})
 						local prevFocusedModel = controller:getFocusedModel()
 
 						for i, model in controller:getModels() do
+							if cancelledRef.current then
+								break
+							end
+
 							controller:focusAsync(true, model)
 							Photobooth.yieldUntilNextFrame()
 
@@ -130,11 +132,15 @@ local function appComponent(_props: {})
 							end
 						end
 
-						folder.Name = "AutoCaptures"
-						folder.Parent = StarterGui
+						if #folder:GetChildren() > 0 then
+							folder.Name = "AutoCaptures"
+							folder.Parent = StarterGui
 
-						plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
-						SelectionService:Set({ folder })
+							plugin:SelectRibbonTool(Enum.RibbonTool.Select, UDim2.fromOffset(0, 0))
+							SelectionService:Set({ folder })
+						else
+							folder:Destroy()
+						end
 
 						if prevFocusedModel then
 							controller:focusAsync(false, prevFocusedModel)
@@ -147,8 +153,9 @@ local function appComponent(_props: {})
 				if not success then
 					warn(err)
 				end
-
-				setDisabled(false)
+			end,
+			OnCancel = function()
+				cancelledRef.current = true
 			end,
 
 			OnListElementSelected = function(element)
@@ -190,7 +197,6 @@ local function appComponent(_props: {})
 
 			Controller = controller,
 			CaptureRect = captureRect,
-			Disabled = disabled,
 		}),
 
 		FitterWindow = ReactRoblox.createPortal(
@@ -215,8 +221,6 @@ local function appComponent(_props: {})
 						controller:setCaptureRect(newRect)
 						setCaptureRect(newRect)
 					end,
-
-					Disabled = disabled,
 				}),
 			}),
 			CoreGui

@@ -22,6 +22,7 @@ export type ListElement = InstanceList.ListElement<PVInstance>
 export type Props = {
 	OnCapture: () -> (),
 	OnCaptureAll: () -> (),
+	OnCancel: () -> (),
 	OnListElementAdded: (ListElement) -> (),
 	OnListElementSelected: (ListElement?) -> (),
 	OnListElementRemoved: (ListElement) -> (),
@@ -32,6 +33,8 @@ export type Props = {
 
 local function Widget(props: Props)
 	local theme = StudioComponents.useTheme()
+	local capturingState, setCapturingState = React.useState("None")
+	local disabled = props.Disabled or capturingState ~= "None"
 
 	local propertiesRef = React.useRef(nil)
 	local propertiesAbsSize = Hooks.useRefProperty(propertiesRef, "AbsoluteSize", Vector2.zero)
@@ -49,7 +52,7 @@ local function Widget(props: Props)
 		ClipsDescendants = true,
 		ZIndex = -1, -- Fixes dropdown issues
 	}, {
-		Overlay = props.Disabled and React.createElement("Frame", {
+		Overlay = capturingState ~= "None" and React.createElement("Frame", {
 			BackgroundTransparency = 0.7,
 			BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground),
 			BorderSizePixel = 0,
@@ -72,7 +75,7 @@ local function Widget(props: Props)
 			Properties = React.createElement(Properties, {
 				Controller = props.Controller,
 				CaptureRect = props.CaptureRect,
-				Disabled = props.Disabled,
+				Disabled = disabled,
 				LayoutOrder = 1,
 				ref = propertiesRef,
 			}),
@@ -91,7 +94,7 @@ local function Widget(props: Props)
 					return if instance:IsA("PVInstance") then instance else nil
 				end,
 
-				Disabled = props.Disabled,
+				Disabled = disabled,
 				LayoutOrder = 3,
 			}),
 		}),
@@ -102,6 +105,7 @@ local function Widget(props: Props)
 			Position = UDim2.fromScale(0, 1),
 			Size = UDim2.new(1, 0, 0, BUTTONS_HEIGHT),
 			ClipsDescendants = true,
+			ZIndex = 3,
 		}, {
 			Padding = React.createElement("UIPadding", {
 				PaddingLeft = UDim.new(0, 3),
@@ -117,44 +121,61 @@ local function Widget(props: Props)
 				Padding = UDim.new(0, 4),
 			}),
 
-			CaptureAll = React.createElement(StudioComponents.Button, {
+			CaptureButtons = capturingState ~= "CaptureAll" and React.createElement(React.Fragment, nil, {
+				CaptureAll = React.createElement(StudioComponents.Button, {
+					Size = UDim2.fromScale(1, 1),
+					TextXAlignment = Enum.TextXAlignment.Center,
+					Text = "Capture All",
+					Disabled = nList == 0 or disabled,
+					LayoutOrder = 1,
+
+					OnActivated = function()
+						setCapturingState("CaptureAll")
+						props.OnCaptureAll()
+						setCapturingState("None")
+					end,
+
+					Icon = {
+						Image = CAPTURE_ALL_ICON.Url,
+						RectSize = CAPTURE_ALL_ICON.ImageRectSize,
+						RectOffset = CAPTURE_ALL_ICON.ImageRectOffset,
+						Size = Vector2.new(CAPTURE_ALL_ICON.ImageRectSize.X, CAPTURE_ALL_ICON.ImageRectSize.Y),
+						UseThemeColor = true,
+					},
+				}),
+
+				Capture = React.createElement(StudioComponents.MainButton, {
+					Size = UDim2.fromScale(1, 1),
+					TextXAlignment = Enum.TextXAlignment.Center,
+					Text = "Capture",
+					Disabled = nList == 0 or disabled,
+					LayoutOrder = 2,
+
+					OnActivated = function()
+						setCapturingState("Capture")
+						props.OnCapture()
+						setCapturingState("None")
+					end,
+
+					Icon = {
+						Image = CAPTURE_ICON.Url,
+						RectSize = CAPTURE_ICON.ImageRectSize,
+						RectOffset = CAPTURE_ICON.ImageRectOffset,
+						Size = Vector2.new(CAPTURE_ICON.ImageRectSize.X, CAPTURE_ICON.ImageRectSize.Y),
+						UseThemeColor = true,
+					},
+				}),
+			}),
+
+			CancelButton = capturingState == "CaptureAll" and React.createElement(StudioComponents.Button, {
 				Size = UDim2.fromScale(1, 1),
 				TextXAlignment = Enum.TextXAlignment.Center,
-				Text = "Capture All",
-				Disabled = nList == 0 or not not props.Disabled,
+				Text = "Cancel",
 				LayoutOrder = 1,
 
 				OnActivated = function()
-					props.OnCaptureAll()
+					props.OnCancel()
 				end,
-
-				Icon = {
-					Image = CAPTURE_ALL_ICON.Url,
-					RectSize = CAPTURE_ALL_ICON.ImageRectSize,
-					RectOffset = CAPTURE_ALL_ICON.ImageRectOffset,
-					Size = Vector2.new(CAPTURE_ALL_ICON.ImageRectSize.X, CAPTURE_ALL_ICON.ImageRectSize.Y),
-					UseThemeColor = true,
-				},
-			}),
-
-			Capture = React.createElement(StudioComponents.MainButton, {
-				Size = UDim2.fromScale(1, 1),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				Text = "Capture",
-				Disabled = nList == 0 or not not props.Disabled,
-				LayoutOrder = 2,
-
-				OnActivated = function()
-					props.OnCapture()
-				end,
-
-				Icon = {
-					Image = CAPTURE_ICON.Url,
-					RectSize = CAPTURE_ICON.ImageRectSize,
-					RectOffset = CAPTURE_ICON.ImageRectOffset,
-					Size = Vector2.new(CAPTURE_ICON.ImageRectSize.X, CAPTURE_ICON.ImageRectSize.Y),
-					UseThemeColor = true,
-				},
 			}),
 		}),
 	})
