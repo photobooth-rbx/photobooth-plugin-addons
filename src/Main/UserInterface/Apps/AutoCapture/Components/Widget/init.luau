@@ -171,6 +171,7 @@ local function Widget(props: Props)
 				Size = UDim2.fromScale(1, 1),
 				TextXAlignment = Enum.TextXAlignment.Center,
 				Text = "Cancel",
+				Disabled = props.Disabled,
 				LayoutOrder = 1,
 
 				OnActivated = function()
