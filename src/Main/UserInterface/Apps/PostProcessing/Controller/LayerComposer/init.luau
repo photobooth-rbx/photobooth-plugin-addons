@@ -4,6 +4,7 @@ local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local Parallel = require(pluginRoot.Packages.Parallel)
 local RectSlicer = require(pluginRoot.Utilities.RectSlicer)
 
+local AlphaBleed = require(script.AlphaBleed)
 local Types = require(script.Types)
 
 local LayerComposer = {}
@@ -43,7 +44,10 @@ function LayerComposer.composeAsync(editImage: EditableImage, layers: { Layer },
 	local composedEdit = AssetService:CreateEditableImageAsync(Content.fromObject(editImage))
 	composedEdit:WritePixelsBuffer(Vector2.zero, imgSize, stitched)
 
-	return composedEdit
+	local bledEdit = AlphaBleed(composedEdit)
+	composedEdit:Destroy()
+
+	return bledEdit
 end
 
 return LayerComposer
