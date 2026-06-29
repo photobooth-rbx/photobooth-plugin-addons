@@ -1,6 +1,7 @@
 local CoreGui = game:GetService("CoreGui")
 local StarterGui = game:GetService("StarterGui")
 local SelectionService = game:GetService("Selection")
+local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local pluginRoot = script:FindFirstAncestor("PluginRoot")
 local StudioComponents = require(pluginRoot.Packages.StudioComponents)
@@ -24,18 +25,39 @@ local function hideWorkspace(callback: () -> ())
 	local camera = workspace.CurrentCamera
 	local children = workspace:GetChildren()
 
+	local recording = ChangeHistoryService:TryBeginRecording("AutoCapture", "Auto Capture")
+
 	local hidden = {}
 	for _, child in children do
 		if child ~= camera and child ~= terrain then
+			table.insert(hidden, {
+				instance = child,
+				archivable = child.Archivable,
+			})
+
+			child.Archivable = false
 			child.Parent = nil
-			table.insert(hidden, child)
 		end
 	end
 
-	callback()
+	local ok, err: string? = pcall(function()
+		callback()
+	end)
 
-	for _, child in hidden do
-		child.Parent = workspace
+	for _, entry in hidden do
+		entry.instance.Parent = workspace
+		entry.instance.Archivable = entry.archivable
+	end
+
+	if recording then
+		ChangeHistoryService:FinishRecording(
+			recording,
+			if ok then Enum.FinishRecordingOperation.Commit else Enum.FinishRecordingOperation.Cancel
+		)
+	end
+
+	if not ok then
+		error(err, 0)
 	end
 end
 
