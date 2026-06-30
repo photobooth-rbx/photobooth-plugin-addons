@@ -28,6 +28,7 @@ loadEffects({
 	"DropShadow",
 	"OuterGlow",
 	"InnerGlow",
+	"InnerShadow",
 	"ChromaticAberration",
 })
 
