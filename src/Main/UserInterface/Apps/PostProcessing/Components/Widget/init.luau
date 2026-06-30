@@ -89,12 +89,14 @@ local function Widget(props: Props)
 
 	local layers = controller:useComposited()
 	local selectedTab, setSelectedTab = React.useState("Effects")
-	local isApplying, setIsApplying = React.useState(false)
 	local loadingLayer, setLoadingLayer = React.useState(nil :: Controller.RenderLayer?)
-	local disabled = isApplying or not not props.Disabled
+	local applyingState, setApplyingState = React.useState("None")
+	local cancelApplyingRef = React.useRef(false)
+
+	local disabled = applyingState ~= "None" or not not props.Disabled
 
 	React.useEffect(function()
-		if not isApplying then
+		if applyingState == "None" then
 			local editImage = selected.images[selected.index]
 			if editImage then
 				task.spawn(function()
@@ -107,7 +109,7 @@ local function Widget(props: Props)
 				setLoadingLayer(nil :: any)
 			end
 		end
-	end, { selected.images, selected.index, isApplying } :: { any })
+	end, { selected.images, selected.index, applyingState } :: { any })
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -168,7 +170,21 @@ local function Widget(props: Props)
 				}),
 			}),
 
-			ActionBar = React.createElement("Frame", {
+			Overlay = applyingState ~= "None" and React.createElement("ImageButton", {
+				BorderSizePixel = 0,
+				BackgroundTransparency = 0.7,
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				Size = UDim2.fromScale(1, 1),
+				AutoButtonColor = false,
+				Image = "",
+				ZIndex = 2,
+			}, {
+				Dots = React.createElement(StudioComponents.LoadingDots, {
+					Size = UDim2.fromScale(1, 1),
+				}),
+			}),
+
+			ActionBarBottom = React.createElement("Frame", {
 				AnchorPoint = Vector2.new(0, 1),
 				Position = UDim2.fromScale(0, 1),
 				Size = UDim2.new(1, 0, 0, ACTION_BAR_HEIGHT),
@@ -176,93 +192,6 @@ local function Widget(props: Props)
 				BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Border),
 				BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.Titlebar),
 			}, {
-				ComposeButtons = React.createElement("Frame", {
-					BackgroundTransparency = 1,
-					AnchorPoint = Vector2.new(1, 0.5),
-					Position = UDim2.fromScale(1, 0.5),
-					Size = UDim2.new(0, 280, 1, 0),
-					ClipsDescendants = true,
-				}, {
-					Padding = React.createElement("UIPadding", {
-						PaddingLeft = UDim.new(0, 3),
-						PaddingRight = UDim.new(0, 3),
-						PaddingTop = UDim.new(0, 3),
-						PaddingBottom = UDim.new(0, 4),
-					}),
-					UIListLayout = React.createElement("UIListLayout", {
-						HorizontalAlignment = Enum.HorizontalAlignment.Center,
-						HorizontalFlex = Enum.UIFlexAlignment.Fill,
-						FillDirection = Enum.FillDirection.Horizontal,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 4),
-					}),
-
-					Compose = React.createElement(StudioComponents.MainButton, {
-						Size = UDim2.fromScale(1, 1),
-						Text = "Compose",
-						Disabled = disabled,
-						LayoutOrder = -1,
-
-						Icon = {
-							Image = IMAGE_ICON.Url,
-							RectSize = IMAGE_ICON.ImageRectSize,
-							RectOffset = IMAGE_ICON.ImageRectOffset,
-							Size = Vector2.new(IMAGE_ICON.ImageRectSize.X, IMAGE_ICON.ImageRectSize.Y),
-							UseThemeColor = true,
-						},
-
-						OnActivated = function()
-							setIsApplying(true)
-
-							local editImage = controller.editImage
-							if editImage then
-								local composed = controller:composeImageAsync(editImage)
-								local meshPart = PhotoboothBindings.getMeshPart()
-								meshPart.Name = selected.nameByImage[editImage] or "Composition"
-								meshPart.TextureContent = Content.fromObject(composed)
-								meshPart.Parent = game:GetService("StarterGui")
-							end
-
-							setIsApplying(false)
-						end,
-					}),
-
-					ComposeAll = React.createElement(StudioComponents.Button, {
-						Size = UDim2.fromScale(1, 1),
-						Text = "Compose All",
-						Disabled = disabled,
-						LayoutOrder = -2,
-
-						Icon = {
-							Image = IMAGES_ICON.Url,
-							RectSize = IMAGES_ICON.ImageRectSize,
-							RectOffset = IMAGES_ICON.ImageRectOffset,
-							Size = Vector2.new(IMAGES_ICON.ImageRectSize.X, IMAGES_ICON.ImageRectSize.Y),
-							UseThemeColor = true,
-						},
-
-						OnActivated = function()
-							setIsApplying(true)
-
-							local folder = Instance.new("Folder")
-							for i, editImage in selected.images do
-								local composed = controller:composeImageAsync(editImage)
-								local meshPart = PhotoboothBindings.getMeshPart()
-								meshPart.Name = selected.nameByImage[editImage] or `{i}_Composition`
-								meshPart.TextureContent = Content.fromObject(composed)
-								meshPart.Parent = folder
-							end
-
-							folder.Name = "Composed"
-							folder.Parent = game:GetService("StarterGui")
-
-							game:GetService("Selection"):Set({ folder })
-
-							setIsApplying(false)
-						end,
-					}),
-				}),
-
 				ImageIndexer = React.createElement("Frame", {
 					BackgroundTransparency = 1,
 					AnchorPoint = Vector2.new(0, 0.5),
@@ -314,18 +243,124 @@ local function Widget(props: Props)
 					}),
 				}),
 			}),
-		}),
 
-		Overlay = isApplying and React.createElement("ImageButton", {
-			BorderSizePixel = 0,
-			BackgroundTransparency = 0.7,
-			BackgroundColor3 = Color3.new(0, 0, 0),
-			Size = UDim2.fromScale(1, 1),
-			AutoButtonColor = false,
-			Image = "",
-		}, {
-			Dots = React.createElement(StudioComponents.LoadingDots, {
-				Size = UDim2.fromScale(1, 1),
+			ActionBarTop = React.createElement("Frame", {
+				AnchorPoint = Vector2.new(0, 1),
+				Position = UDim2.fromScale(0, 1),
+				Size = UDim2.new(1, 0, 0, ACTION_BAR_HEIGHT),
+				BackgroundTransparency = 1,
+				ZIndex = 3,
+			}, {
+				ComposeButtons = React.createElement("Frame", {
+					BackgroundTransparency = 1,
+					AnchorPoint = Vector2.new(1, 0.5),
+					Position = UDim2.fromScale(1, 0.5),
+					Size = UDim2.new(0, 280, 1, 0),
+					ClipsDescendants = true,
+				}, {
+					Padding = React.createElement("UIPadding", {
+						PaddingLeft = UDim.new(0, 3),
+						PaddingRight = UDim.new(0, 3),
+						PaddingTop = UDim.new(0, 3),
+						PaddingBottom = UDim.new(0, 4),
+					}),
+					UIListLayout = React.createElement("UIListLayout", {
+						HorizontalAlignment = Enum.HorizontalAlignment.Center,
+						HorizontalFlex = Enum.UIFlexAlignment.Fill,
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 4),
+					}),
+
+					ComposeButtons = applyingState ~= "ComposeAll" and React.createElement(React.Fragment, nil, {
+						Compose = React.createElement(StudioComponents.MainButton, {
+							Size = UDim2.fromScale(1, 1),
+							Text = "Compose",
+							Disabled = disabled,
+							LayoutOrder = -1,
+
+							Icon = {
+								Image = IMAGE_ICON.Url,
+								RectSize = IMAGE_ICON.ImageRectSize,
+								RectOffset = IMAGE_ICON.ImageRectOffset,
+								Size = Vector2.new(IMAGE_ICON.ImageRectSize.X, IMAGE_ICON.ImageRectSize.Y),
+								UseThemeColor = true,
+							},
+
+							OnActivated = function()
+								cancelApplyingRef.current = false
+								setApplyingState("Compose")
+
+								local editImage = controller.editImage
+								if editImage then
+									local composed = controller:composeImageAsync(editImage)
+									local name = selected.nameByImage[editImage]
+									local meshPart = PhotoboothBindings.getMeshPart()
+									meshPart.Name = if name then `{name}_Composed` else "Composed"
+									meshPart.TextureContent = Content.fromObject(composed)
+									meshPart.Parent = game:GetService("StarterGui")
+								end
+
+								setApplyingState("None")
+							end,
+						}),
+
+						ComposeAll = React.createElement(StudioComponents.Button, {
+							Size = UDim2.fromScale(1, 1),
+							Text = "Compose All",
+							Disabled = disabled,
+							LayoutOrder = -2,
+
+							Icon = {
+								Image = IMAGES_ICON.Url,
+								RectSize = IMAGES_ICON.ImageRectSize,
+								RectOffset = IMAGES_ICON.ImageRectOffset,
+								Size = Vector2.new(IMAGES_ICON.ImageRectSize.X, IMAGES_ICON.ImageRectSize.Y),
+								UseThemeColor = true,
+							},
+
+							OnActivated = function()
+								cancelApplyingRef.current = false
+								setApplyingState("ComposeAll")
+
+								local folder = Instance.new("Folder")
+								for i, editImage in selected.images do
+									if cancelApplyingRef.current then
+										break
+									end
+
+									local composed = controller:composeImageAsync(editImage)
+									local meshPart = PhotoboothBindings.getMeshPart()
+									meshPart.Name = selected.nameByImage[editImage] or `{i}_Composition`
+									meshPart.TextureContent = Content.fromObject(composed)
+									meshPart.Parent = folder
+								end
+
+								if #folder:GetChildren() > 0 then
+									folder.Name = "Composed"
+									folder.Parent = game:GetService("StarterGui")
+
+									game:GetService("Selection"):Set({ folder })
+								else
+									folder:Destroy()
+								end
+
+								setApplyingState("None")
+							end,
+						}),
+					}),
+
+					CancelButton = applyingState == "ComposeAll" and React.createElement(StudioComponents.Button, {
+						Size = UDim2.fromScale(1, 1),
+						Text = "Cancel",
+						Disabled = props.Disabled,
+						LayoutOrder = -1,
+
+						OnActivated = function()
+							cancelApplyingRef.current = true
+						end,
+					}),
+				}),
 			}),
 		}),
 	})
