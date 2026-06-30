@@ -16,7 +16,6 @@ local scheduler = Parallel.new(32, {
 })
 
 return EffectsRegistry.register("Stroke", {
-	playerCreated = true,
 	create = function()
 		local properties: Properties = {
 			thickness = 5,

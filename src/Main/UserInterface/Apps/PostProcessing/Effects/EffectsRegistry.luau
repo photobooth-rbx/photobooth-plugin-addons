@@ -3,8 +3,6 @@ local EffectsRegistry = {}
 export type ImageInputs = {
 	img: EditableImage,
 	svf: EditableImage,
-	-- A blank, image-sized scratch buffer an effect may use for intermediate passes
-	-- (e.g. Drop Shadow's separable blur). Reused across renders; assume it holds garbage.
 	scratch: EditableImage,
 	output: EditableImage,
 }
@@ -13,7 +11,6 @@ export type Effect<Properties> = {
 	kind: string,
 	name: string,
 	index: number,
-	playerCreated: boolean,
 	renderTicket: number,
 	properties: Properties,
 }
@@ -25,8 +22,6 @@ export type EffectProps<Properties> = {
 }
 
 export type Registration<Properties> = {
-	playerCreated: boolean,
-	-- Composite this effect above the layer's base image instead of behind it.
 	renderAboveBase: boolean?,
 	create: () -> Properties,
 	render: (ImageInputs, Properties) -> (),
@@ -39,7 +34,6 @@ function EffectsRegistry.register<Properties>(kind: string, registration: Regist
 	local effectEntry = {
 		kind = kind,
 		index = #effectByIndex + 1,
-		playerCreated = registration.playerCreated,
 		renderAboveBase = registration.renderAboveBase or false,
 
 		create = registration.create,
@@ -56,19 +50,17 @@ function EffectsRegistry.getByKind(kind: string)
 	return effectByKind[kind]
 end
 
-local cachedPlayerCreatableKinds: { string }
-function EffectsRegistry.getPlayerCreatableKinds()
-	if not cachedPlayerCreatableKinds then
-		local playerCreatableKinds = {}
+local cachedKinds: { string }
+function EffectsRegistry.getKinds()
+	if not cachedKinds then
+		local kinds = {}
 		for _, effectEntry in effectByIndex do
-			if effectEntry.playerCreated then
-				table.insert(playerCreatableKinds, effectEntry.kind)
-			end
+			table.insert(kinds, effectEntry.kind)
 		end
-		table.freeze(playerCreatableKinds)
-		cachedPlayerCreatableKinds = playerCreatableKinds
+		table.freeze(kinds)
+		cachedKinds = kinds
 	end
-	return cachedPlayerCreatableKinds
+	return cachedKinds
 end
 
 return EffectsRegistry

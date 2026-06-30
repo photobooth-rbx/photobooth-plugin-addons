@@ -34,7 +34,7 @@ loadEffects({
 
 return {
 	getByKind = EffectsRegistry.getByKind,
-	getPlayerCreatableKinds = EffectsRegistry.getPlayerCreatableKinds,
+	getKinds = EffectsRegistry.getKinds,
 	getReactComponentByKind = function(kind: string)
 		return componentsByKind[kind]
 	end,

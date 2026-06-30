@@ -16,7 +16,6 @@ local scheduler = Parallel.new(32, {
 })
 
 return EffectsRegistry.register("Chromatic Aberration", {
-	playerCreated = true,
 	renderAboveBase = false,
 	create = function()
 		local properties: Properties = {

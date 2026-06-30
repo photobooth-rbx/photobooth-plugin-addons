@@ -25,7 +25,6 @@ export type Effect<Properties> = {
 	kind: string,
 	name: string,
 	index: number,
-	playerCreated: boolean,
 	renderTicket: number,
 	properties: Properties,
 }
@@ -114,7 +113,6 @@ local function makeLayerEffect(kind: string, name: string): LayerEffect
 			kind = kind,
 			name = name,
 			index = 0,
-			playerCreated = entry.playerCreated,
 			renderTicket = 0,
 			properties = entry.create(),
 		},

@@ -16,7 +16,6 @@ local scheduler = Parallel.new(32, {
 })
 
 return EffectsRegistry.register("Inner Shadow", {
-	playerCreated = true,
 	renderAboveBase = true,
 	create = function()
 		local properties: Properties = {

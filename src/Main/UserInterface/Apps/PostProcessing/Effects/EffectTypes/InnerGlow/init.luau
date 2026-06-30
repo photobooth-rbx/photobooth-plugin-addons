@@ -16,8 +16,6 @@ local scheduler = Parallel.new(32, {
 })
 
 return EffectsRegistry.register("Inner Glow", {
-	playerCreated = true,
-	-- Sits on top of the subject, glowing inward from its edges.
 	renderAboveBase = true,
 	create = function()
 		local properties: Properties = {

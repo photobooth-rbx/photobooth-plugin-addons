@@ -186,7 +186,7 @@ export type Props = {
 
 local function EffectDialog(props: Props)
 	local theme = StudioComponents.useTheme()
-	local effectType, setEffectType = React.useState(Effects.getPlayerCreatableKinds()[1])
+	local effectType, setEffectType = React.useState(Effects.getKinds()[1])
 	local name, setName = React.useState(effectType)
 
 	return React.createElement("Frame", {
@@ -238,7 +238,7 @@ local function EffectDialog(props: Props)
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.new(1, 0, 0, 22),
 				FieldName = "Type",
-				List = Effects.getPlayerCreatableKinds(),
+				List = Effects.getKinds(),
 				Value = effectType,
 				OnValueSubmitted = function(newPick)
 					setEffectType(newPick)

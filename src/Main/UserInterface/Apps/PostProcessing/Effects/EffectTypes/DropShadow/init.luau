@@ -32,7 +32,6 @@ local verticalScheduler = Parallel.new(32, {
 })
 
 return EffectsRegistry.register("Drop Shadow", {
-	playerCreated = true,
 	create = function()
 		local properties: Properties = {
 			blur = 4,
